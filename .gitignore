@@ -4,11 +4,13 @@ node_modules/
 # Supabase local
 supabase/.env.local
 supabase/.temp/
+supabase/.api-keys.json
 
 # Environment
 .env
 .env.local
 .env.*.local
+app/.env
 
 # OS / editor
 .DS_Store

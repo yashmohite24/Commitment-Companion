@@ -6,6 +6,9 @@
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "db:reset": "supabase db reset",
-    "functions:serve": "supabase functions serve --env-file supabase/.env.local"
+    "functions:serve": "supabase functions serve --env-file supabase/.env.local",
+    "deploy:backend": "bash scripts/deploy-backend.sh",
+    "app:start": "cd app && npx expo start --go --lan",
+    "app:test": "cd app && npm test"
   }
 }

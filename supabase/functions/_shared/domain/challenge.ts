@@ -62,6 +62,16 @@ export function validateCreateChallenge(input: CreateChallengeInput): {
   return { ok: true };
 }
 
+/** Validate draft challenge update (same rules as create, excluding self from name check). */
+export function validateUpdateDraft(
+  input: CreateChallengeInput & { currentName?: string },
+): { ok: boolean; error?: string } {
+  const names = input.existingActiveNames.filter(
+    (n) => n.toLowerCase() !== (input.currentName ?? "").toLowerCase(),
+  );
+  return validateCreateChallenge({ ...input, existingActiveNames: names });
+}
+
 /** 24 hours after challenge start_date (companion acceptance window end) */
 export function companionAcceptanceDeadline(
   startDate: string,

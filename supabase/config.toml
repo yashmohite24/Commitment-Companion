@@ -4,7 +4,8 @@
 
 project_id = "jcanswwvditynjwvtmec"
 
-[api]enabled = true
+[api]
+enabled = true
 port = 54321
 schemas = ["public"]
 extra_search_path = ["public", "extensions"]
@@ -35,3 +36,6 @@ verify_jwt = true
 
 [functions.scheduled-jobs]
 verify_jwt = false
+
+[functions.submit-feedback]
+verify_jwt = true

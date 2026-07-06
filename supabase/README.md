@@ -10,37 +10,23 @@ supabase/
 ├── functions/
 │   ├── _shared/          # Domain logic (testable) + Supabase helpers
 │   ├── challenge-actions/  # All domain mutations (JWT auth)
-│   └── scheduled-jobs/     # pg_cron target (CRON_SECRET header)
+│   ├── scheduled-jobs/     # pg_cron target (CRON_SECRET header)
+│   └── submit-feedback/    # Google Sheets
 └── config.toml
 ```
 
-## Prerequisites
-
-- [Supabase CLI](https://supabase.com/docs/guides/cli)
-- [Deno](https://deno.land/) (for tests and Edge Functions)
-
-## Local setup
+## Deploy (hosted project jcanswwvditynjwvtmec)
 
 ```bash
-supabase start
-supabase db reset
+supabase login
+supabase link --project-ref jcanswwvditynjwvtmec
+supabase db push
+supabase functions deploy challenge-actions
+supabase functions deploy scheduled-jobs
+supabase functions deploy submit-feedback
 ```
 
-Copy `supabase/.env.example` to `supabase/.env.local` and fill in values from `supabase status`.
-
-## Run domain tests
-
-```bash
-npm run test:domain
-# or
-deno test --allow-read supabase/functions/_shared/domain/check-in_test.ts
-```
-
-## Serve Edge Functions locally
-
-```bash
-supabase functions serve --env-file supabase/.env.local
-```
+Set secrets: `CRON_SECRET`, `GOOGLE_SHEET_ID`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, `APP_DOWNLOAD_URL`.
 
 ## challenge-actions API
 
@@ -49,6 +35,9 @@ POST `/functions/v1/challenge-actions` with `Authorization: Bearer <user_jwt>`:
 | action | payload |
 |--------|---------|
 | `create_challenge` | `name`, `start_date`, `end_date`, `daily_deadline_time`, `timezone`, `wager`, `lives_total`, `companion_user_ids[]` |
+| `update_challenge` | `challenge_id`, same fields as create (draft only) |
+| `delete_challenge` | `challenge_id` (draft only) |
+| `invite_companion_sms` | `challenge_id`, `phone` |
 | `respond_companion_request` | `request_id`, `decision` (`accepted` \| `rejected`) |
 | `prepare_check_in_upload` | `challenge_id`, `check_in_date` |
 | `submit_check_in` | `challenge_id`, `check_in_date`, `storage_paths[]`, `media_size_bytes` |
@@ -62,14 +51,13 @@ POST `/functions/v1/challenge-actions` with `Authorization: Bearer <user_jwt>`:
 
 POST `/functions/v1/scheduled-jobs` with header `x-cron-secret: <CRON_SECRET>`.
 
-Runs every minute via pg_cron (configure in Supabase Dashboard → Database → Cron).
+## submit-feedback
 
-## Schema overview
+POST `/functions/v1/submit-feedback` with JWT body `{ header, message }`.
 
-- **challenges** — lifecycle (`draft`, `active`, `successful`, `failed`, `closed`)
-- **daily_check_ins** — per-day status (`pending`, `pending_validation`, `done`, `missed`)
-- **proof_of_work** / **approvals** — check-in submissions and companion votes
-- **check_in_logs** / **system_messages** — activity feed
-- **wager_settlements** / **wager_settlement_approvals** — post-failure wager flow
+## RPC
+
+- `get_profile_stats()` — profile tab statistics
+- `search_profiles_by_phone(p_digits)` — companion picker
 
 Domain writes use the service role inside Edge Functions. Clients read via RLS.

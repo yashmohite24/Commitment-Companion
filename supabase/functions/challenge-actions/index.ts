@@ -8,8 +8,10 @@ import {
 import { activateChallengeIfReady } from "../_shared/domain/activate.ts";
 import {
   validateCreateChallenge,
+  validateUpdateDraft,
   shouldMarkChallengeSuccessful,
 } from "../_shared/domain/challenge.ts";
+import { pushToUsers } from "../_shared/push.ts";
 import { todayInTimezone } from "../_shared/time.ts";
 import type { Challenge, DailyCheckIn } from "../_shared/types.ts";
 import { MAX_MEDIA_BYTES } from "../_shared/types.ts";
@@ -44,6 +46,12 @@ Deno.serve(async (req) => {
     switch (body.action) {
       case "create_challenge":
         return await handleCreateChallenge(supabase, userId, body.payload ?? {});
+      case "update_challenge":
+        return await handleUpdateChallenge(supabase, userId, body.payload ?? {});
+      case "delete_challenge":
+        return await handleDeleteChallenge(supabase, userId, body.payload ?? {});
+      case "invite_companion_sms":
+        return await handleInviteCompanionSms(supabase, userId, body.payload ?? {});
       case "respond_companion_request":
         return await handleRespondCompanionRequest(supabase, userId, body.payload ?? {});
       case "prepare_check_in_upload":
@@ -126,6 +134,172 @@ async function handleCreateChallenge(
   if (reqErr) return errorResponse(reqErr.message, 500);
 
   return jsonResponse({ challenge, companion_requests_created: companionIds.length });
+}
+
+async function handleUpdateChallenge(
+  supabase: ReturnType<typeof createServiceClient>,
+  userId: string,
+  payload: Record<string, unknown>,
+) {
+  const challengeId = String(payload.challenge_id ?? "");
+  const companionIds = (payload.companion_user_ids as string[]) ?? [];
+
+  const { data: existing } = await supabase
+    .from("challenges")
+    .select("*")
+    .eq("id", challengeId)
+    .eq("challenger_id", userId)
+    .eq("status", "draft")
+    .single();
+  if (!existing) return errorResponse("Draft challenge not found", 404);
+
+  const { count } = await supabase
+    .from("challenges")
+    .select("id", { count: "exact", head: true })
+    .eq("challenger_id", userId)
+    .in("status", ["draft", "active", "failed"]);
+
+  const { data: names } = await supabase
+    .from("challenges")
+    .select("name")
+    .eq("challenger_id", userId)
+    .in("status", ["draft", "active", "failed"]);
+
+  const validation = validateUpdateDraft({
+    name: String(payload.name ?? existing.name),
+    start_date: String(payload.start_date ?? existing.start_date),
+    end_date: String(payload.end_date ?? existing.end_date),
+    daily_deadline_time: String(
+      payload.daily_deadline_time ?? existing.daily_deadline_time,
+    ),
+    timezone: String(payload.timezone ?? existing.timezone),
+    wager: String(payload.wager ?? existing.wager),
+    lives_total: Number(payload.lives_total ?? existing.lives_total),
+    companion_user_ids: companionIds.length > 0
+      ? companionIds
+      : await loadDraftCompanionIds(supabase, challengeId),
+    activeChallengeCount: count ?? 0,
+    existingActiveNames: (names ?? []).map((r) => r.name),
+    currentName: existing.name,
+  });
+  if (!validation.ok) return errorResponse(validation.error!);
+
+  const { data: challenge, error } = await supabase
+    .from("challenges")
+    .update({
+      name: payload.name ?? existing.name,
+      start_date: payload.start_date ?? existing.start_date,
+      end_date: payload.end_date ?? existing.end_date,
+      daily_deadline_time: payload.daily_deadline_time ?? existing.daily_deadline_time,
+      timezone: payload.timezone ?? existing.timezone,
+      wager: payload.wager ?? existing.wager,
+      lives_total: payload.lives_total ?? existing.lives_total,
+      draft_message: null,
+    })
+    .eq("id", challengeId)
+    .select()
+    .single();
+  if (error) return errorResponse(error.message, 500);
+
+  if (companionIds.length > 0) {
+    await supabase
+      .from("companion_requests")
+      .delete()
+      .eq("challenge_id", challengeId)
+      .eq("status", "pending");
+    const requests = companionIds.map((cid) => ({
+      challenge_id: challengeId,
+      companion_user_id: cid,
+    }));
+    await supabase.from("companion_requests").insert(requests);
+  }
+
+  return jsonResponse({ challenge });
+}
+
+async function loadDraftCompanionIds(
+  supabase: ReturnType<typeof createServiceClient>,
+  challengeId: string,
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("companion_requests")
+    .select("companion_user_id")
+    .eq("challenge_id", challengeId)
+    .in("status", ["pending", "accepted"]);
+  return (data ?? []).map((r) => r.companion_user_id);
+}
+
+async function handleDeleteChallenge(
+  supabase: ReturnType<typeof createServiceClient>,
+  userId: string,
+  payload: Record<string, unknown>,
+) {
+  const challengeId = String(payload.challenge_id ?? "");
+  const { data } = await supabase
+    .from("challenges")
+    .select("id")
+    .eq("id", challengeId)
+    .eq("challenger_id", userId)
+    .eq("status", "draft")
+    .single();
+  if (!data) return errorResponse("Draft challenge not found", 404);
+
+  const { error } = await supabase.from("challenges").delete().eq("id", challengeId);
+  if (error) return errorResponse(error.message, 500);
+  return jsonResponse({ ok: true });
+}
+
+async function handleInviteCompanionSms(
+  supabase: ReturnType<typeof createServiceClient>,
+  userId: string,
+  payload: Record<string, unknown>,
+) {
+  const phone = String(payload.phone ?? "").replace(/\D/g, "");
+  const challengeId = String(payload.challenge_id ?? "");
+  if (!phone || phone.length < 10) {
+    return errorResponse("Valid phone number required");
+  }
+
+  const { data: challenge } = await supabase
+    .from("challenges")
+    .select("name")
+    .eq("id", challengeId)
+    .eq("challenger_id", userId)
+    .eq("status", "draft")
+    .single();
+  if (!challenge) return errorResponse("Draft challenge not found", 404);
+
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const fromNumber = Deno.env.get("TWILIO_FROM_NUMBER");
+  const appUrl = Deno.env.get("APP_DOWNLOAD_URL") ?? "https://commitment.app/download";
+  if (!accountSid || !authToken || !fromNumber) {
+    return errorResponse("SMS not configured", 503);
+  }
+
+  const body =
+    `You're invited to be a companion on "${challenge.name}" in Commitment App. Download: ${appUrl}`;
+  const auth = btoa(`${accountSid}:${authToken}`);
+  const res = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        To: phone.startsWith("+") ? phone : `+${phone}`,
+        From: fromNumber,
+        Body: body,
+      }),
+    },
+  );
+  if (!res.ok) {
+    console.error(await res.text());
+    return errorResponse("Failed to send SMS", 500);
+  }
+  return jsonResponse({ ok: true });
 }
 
 async function handleRespondCompanionRequest(
@@ -268,6 +442,15 @@ async function handleSubmitCheckIn(
     .update({ status: "pending_validation" })
     .eq("id", ctx.checkIn.id);
 
+  const companionIds = await getActiveCompanionIds(supabase, challengeId);
+  await pushToUsers(
+    supabase,
+    companionIds,
+    "New check-in submitted",
+    "A companion needs to verify today's proof of work.",
+    { challenge_id: challengeId },
+  );
+
   return jsonResponse({ proof, check_in_status: "pending_validation" });
 }
 
@@ -372,6 +555,14 @@ async function handleApproveProof(
 
   await maybeMarkChallengeSuccessful(supabase, challenge.id);
 
+  await pushToUsers(
+    supabase,
+    [challenge.challenger_id],
+    resolution.outcome === "verified" ? "Check-in verified" : "Check-in rejected",
+    resolution.logMessage ?? "Your check-in was reviewed.",
+    { challenge_id: challenge.id },
+  );
+
   return jsonResponse({
     ok: true,
     resolved: true,
@@ -461,6 +652,28 @@ async function handleLeaveChallenge(
     message: `${profile?.display_name ?? "A companion"} left the challenge.`,
     message_type: "companion_left",
   });
+
+  const { data: challenge } = await supabase
+    .from("challenges")
+    .select("challenger_id")
+    .eq("id", challengeId)
+    .single();
+  const { data: remaining } = await supabase
+    .from("challenge_participations")
+    .select("companion_user_id")
+    .eq("challenge_id", challengeId)
+    .eq("status", "active");
+  const allNotify = [
+    challenge?.challenger_id,
+    ...(remaining ?? []).map((r) => r.companion_user_id),
+  ].filter(Boolean) as string[];
+  await pushToUsers(
+    supabase,
+    allNotify.filter((id) => id !== userId),
+    "Companion left",
+    `${profile?.display_name ?? "A companion"} left the challenge.`,
+    { challenge_id: challengeId },
+  );
 
   return jsonResponse({ ok: true });
 }
@@ -605,6 +818,15 @@ async function handleSubmitWagerSettlement(
     .select()
     .single();
   if (error) return errorResponse(error.message, 500);
+
+  const companionIds = await getActiveCompanionIds(supabase, challengeId);
+  await pushToUsers(
+    supabase,
+    companionIds,
+    "Wager settlement submitted",
+    "Please review and approve the wager settlement proof.",
+    { challenge_id: challengeId },
+  );
 
   return jsonResponse({ wager_settlement: data });
 }

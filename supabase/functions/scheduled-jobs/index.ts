@@ -7,6 +7,7 @@ import {
 import { todayInTimezone } from "../_shared/time.ts";
 import type { Challenge, DailyCheckIn } from "../_shared/types.ts";
 import { REMINDER_HOURS_BEFORE } from "../_shared/types.ts";
+import { pushToUsers } from "../_shared/push.ts";
 import {
   createServiceClient,
   corsPreflight,
@@ -188,7 +189,15 @@ Deno.serve(async (req) => {
         .update({ deadline_reminder_sent: true })
         .eq("id", row.id);
       results.reminders_sent++;
-      // Expo push dispatch: integrate when device tokens are wired
+
+      const challenge = row.challenges as Challenge;
+      await pushToUsers(
+        supabase,
+        [challenge.challenger_id],
+        "Check-in deadline approaching",
+        "You have about 1 hour left to submit today's proof of work.",
+        { challenge_id: challenge.id },
+      );
     }
 
     // 5. Mark successful challenges
