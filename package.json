@@ -1,0 +1,11 @@
+{
+  "name": "commitment-app",
+  "private": true,
+  "scripts": {
+    "test:domain": "deno test --allow-read supabase/functions/_shared/domain/check-in_test.ts",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "functions:serve": "supabase functions serve --env-file supabase/.env.local"
+  }
+}
