@@ -15,33 +15,41 @@ import { submitFeedback } from '@/src/lib/challenge-actions';
 import { supabase } from '@/src/lib/supabase';
 import type { ProfileStats } from '@/src/lib/types';
 
+interface ProfileRow {
+  first_name: string | null;
+  last_name: string | null;
+  display_name: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+function formatName(p: ProfileRow | null): string {
+  if (!p) return '—';
+  const full = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
+  return full || p.display_name || '—';
+}
+
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
-  const [displayName, setDisplayName] = useState('');
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [stats, setStats] = useState<ProfileStats | null>(null);
   const [feedbackHeader, setFeedbackHeader] = useState('');
   const [feedbackMessage, setFeedbackMessage] = useState('');
 
   const load = useCallback(async () => {
     if (!user) return;
-    const { data: profile } = await supabase
+    const { data } = await supabase
       .from('profiles')
-      .select('display_name')
+      .select('first_name, last_name, display_name, email, phone')
       .eq('id', user.id)
       .single();
-    setDisplayName(profile?.display_name ?? '');
+    setProfile((data as ProfileRow) ?? null);
 
     const { data: statsData } = await supabase.rpc('get_profile_stats');
     if (statsData) setStats(statsData as ProfileStats);
   }, [user]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
-
-  const saveName = async () => {
-    if (!user) return;
-    await supabase.from('profiles').update({ display_name: displayName }).eq('id', user.id);
-    Alert.alert('Saved', 'Display name updated.');
-  };
 
   const sendFeedback = async () => {
     try {
@@ -57,11 +65,23 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>My Profile</Text>
-      <Text style={styles.label}>Display name</Text>
-      <TextInput style={styles.input} value={displayName} onChangeText={setDisplayName} />
-      <Pressable style={styles.btn} onPress={saveName}>
-        <Text style={styles.btnText}>Save name</Text>
-      </Pressable>
+
+      <View style={styles.nameBlock}>
+        <Text style={styles.label}>Name</Text>
+        <Text style={styles.nameValue}>{formatName(profile)}</Text>
+      </View>
+      {profile?.phone ? (
+        <View style={styles.nameBlock}>
+          <Text style={styles.label}>Mobile</Text>
+          <Text style={styles.metaValue}>{profile.phone}</Text>
+        </View>
+      ) : null}
+      {profile?.email ? (
+        <View style={styles.nameBlock}>
+          <Text style={styles.label}>Email</Text>
+          <Text style={styles.metaValue}>{profile.email}</Text>
+        </View>
+      ) : null}
 
       {stats && (
         <View style={styles.stats}>
@@ -76,14 +96,12 @@ export default function ProfileScreen() {
       )}
 
       <Text style={styles.section}>Feedback</Text>
-      <TextInput
-        style={styles.input}
+      <TextInputLike
         placeholder="Subject"
         value={feedbackHeader}
         onChangeText={setFeedbackHeader}
       />
-      <TextInput
-        style={[styles.input, styles.multiline]}
+      <TextInputLike
         placeholder="Message"
         multiline
         value={feedbackMessage}
@@ -111,6 +129,28 @@ export default function ProfileScreen() {
   );
 }
 
+function TextInputLike({
+  placeholder,
+  value,
+  onChangeText,
+  multiline,
+}: {
+  placeholder: string;
+  value: string;
+  onChangeText: (t: string) => void;
+  multiline?: boolean;
+}) {
+  return (
+    <TextInput
+      style={[styles.input, multiline && styles.multiline]}
+      placeholder={placeholder}
+      value={value}
+      onChangeText={onChangeText}
+      multiline={multiline}
+    />
+  );
+}
+
 function StatRow({ label, value }: { label: string; value: string | number }) {
   return (
     <View style={styles.statRow}>
@@ -125,6 +165,9 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 40 },
   title: { fontSize: 24, fontWeight: '700', marginBottom: 16 },
   label: { fontSize: 14, color: '#6b7280', marginBottom: 4 },
+  nameBlock: { marginBottom: 12 },
+  nameValue: { fontSize: 20, fontWeight: '600', color: '#111827' },
+  metaValue: { fontSize: 16, color: '#374151' },
   input: {
     borderWidth: 1,
     borderColor: '#d1d5db',

@@ -179,10 +179,19 @@ Deno.test("processOverdueCheckIn: pending_validation past deadline → provision
 });
 
 Deno.test("validateCreateChallenge: enforces min duration and max active", () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const start = today;
+  const endShort = new Date(Date.parse(`${today}T12:00:00Z`) + 4 * 86400000)
+    .toISOString()
+    .slice(0, 10);
+  const endLong = new Date(Date.parse(`${today}T12:00:00Z`) + 29 * 86400000)
+    .toISOString()
+    .slice(0, 10);
+
   const fail = validateCreateChallenge({
     name: "Run daily",
-    start_date: "2026-07-01",
-    end_date: "2026-07-05",
+    start_date: start,
+    end_date: endShort,
     daily_deadline_time: "23:59:00",
     timezone: "UTC",
     wager: "Coffee",
@@ -195,8 +204,8 @@ Deno.test("validateCreateChallenge: enforces min duration and max active", () =>
 
   const ok = validateCreateChallenge({
     name: "Run daily",
-    start_date: "2026-07-01",
-    end_date: "2026-07-30",
+    start_date: start,
+    end_date: endLong,
     daily_deadline_time: "23:59:00",
     timezone: "UTC",
     wager: "Coffee",

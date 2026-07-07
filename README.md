@@ -47,6 +47,10 @@ npm install
 npx expo start
 ```
 
+**Auth (V1):** Welcome → Sign Up (US 10) or Log In with phone + password (US 11). Dev shortcuts when `EXPO_PUBLIC_DEV_SKIP_AUTH=true`.
+
+**Dev companion phones:** challenger `+919000000001`, companion `+919000000002`.
+
 ## Tests
 
 ```bash

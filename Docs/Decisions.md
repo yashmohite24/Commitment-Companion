@@ -34,6 +34,8 @@ Interpretation: wagers the challenger **paid out** (lost the challenge and compl
 
 Unsettled failed challenges count in the denominator but not the numerator.
 
+**Zero case (2026-07-07):** When `challenges_created = 0` or no failed/closed wagers exist, return **0%** (not 100%).
+
 ---
 
 ### B4 — Longest Streak
@@ -68,7 +70,21 @@ Unsettled failed challenges count in the denominator but not the numerator.
 
 ## Auth & onboarding (I3)
 
-**Decision:** Phone OTP via Supabase Auth. Optional `display_name` on first login. No avatar in V1.
+**Decision (updated 2026-07-07):** Align with PRD User Stories 10–11.
+
+| Flow | V1 behaviour |
+|------|----------------|
+| **Sign up (US 10)** | Welcome → Sign Up form (first/last name, country, phone, email, password) → duplicate check by **phone** → Supabase `signUp` (email + password + metadata) → **phone OTP** verify → profile row via `handle_new_user` trigger |
+| **Login (US 11)** | Phone + **password** (lookup `profiles.email` by phone, then `signInWithPassword`) |
+| **Future login** | Phone OTP only (no password) |
+| **Profile name** | Read-only `first_name` + `last_name` from signup; no manual display-name editor in V1 |
+| **Avatar** | Not in V1 |
+
+**Dev testing:** `EXPO_PUBLIC_DEV_SKIP_AUTH=true` shows shortcut buttons on welcome screen; dev users seeded with phones `+919000000001` / `+919000000002`.
+
+**Schema:** `profiles.first_name`, `last_name`, `email`, `country`, `phone_country_code`, unique `phone`.
+
+**RPCs:** `check_phone_registered`, `get_login_email_by_phone`.
 
 ---
 

@@ -9,6 +9,10 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  validateChallengeForm,
+  type ChallengeFieldErrors,
+} from '@/src/lib/challenge-validation';
 import { invokeChallengeAction } from '@/src/lib/challenge-actions';
 import { supabase } from '@/src/lib/supabase';
 import { useAuth } from '@/src/context/AuthContext';
@@ -24,6 +28,7 @@ export default function CreateChallengeScreen() {
   const [lives, setLives] = useState('0');
   const [companionPhone, setCompanionPhone] = useState('');
   const [companionIds, setCompanionIds] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<ChallengeFieldErrors>({});
   const [loading, setLoading] = useState(false);
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -42,6 +47,10 @@ export default function CreateChallengeScreen() {
 
   const searchCompanion = async () => {
     const digits = companionPhone.replace(/\D/g, '');
+    if (digits.length < 10) {
+      Alert.alert('Invalid phone', 'Enter at least 10 digits to search.');
+      return;
+    }
     const { data, error } = await supabase.rpc('search_profiles_by_phone', {
       p_digits: digits,
     });
@@ -51,22 +60,30 @@ export default function CreateChallengeScreen() {
     }
     setCompanionIds((prev) => [...new Set([...prev, data[0].id])]);
     setCompanionPhone('');
+    setFieldErrors((e) => ({ ...e, companions: undefined }));
   };
 
   const submit = async () => {
-    if (companionIds.length === 0) {
-      Alert.alert('Companions required', 'Add at least one companion.');
-      return;
-    }
+    const validation = validateChallengeForm({
+      name,
+      start_date: startDate,
+      end_date: endDate,
+      wager,
+      lives_total: parseInt(lives, 10) || 0,
+      companionCount: companionIds.length,
+    });
+    setFieldErrors(validation.errors);
+    if (!validation.ok) return;
+
     setLoading(true);
     try {
       const payload = {
-        name,
+        name: name.trim(),
         start_date: startDate,
         end_date: endDate,
         daily_deadline_time: '23:59:00',
         timezone,
-        wager,
+        wager: wager.trim(),
         lives_total: parseInt(lives, 10) || 0,
         companion_user_ids: companionIds,
       };
@@ -130,18 +147,39 @@ export default function CreateChallengeScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{editId ? 'Edit Draft' : 'New Challenge'}</Text>
-      <Field label="Name" value={name} onChangeText={setName} />
-      <Field label="Start date (YYYY-MM-DD)" value={startDate} onChangeText={setStartDate} />
-      <Field label="End date (YYYY-MM-DD)" value={endDate} onChangeText={setEndDate} />
-      <Field label="Wager" value={wager} onChangeText={setWager} />
-      <Field label="Lives" value={lives} onChangeText={setLives} keyboardType="number-pad" />
+      <Field
+        label="Name"
+        value={name}
+        onChangeText={setName}
+        error={fieldErrors.name}
+      />
+      <Field
+        label="Start date (YYYY-MM-DD)"
+        value={startDate}
+        onChangeText={setStartDate}
+        error={fieldErrors.start_date}
+      />
+      <Field
+        label="End date (YYYY-MM-DD)"
+        value={endDate}
+        onChangeText={setEndDate}
+        error={fieldErrors.end_date}
+      />
+      <Field label="Wager" value={wager} onChangeText={setWager} error={fieldErrors.wager} />
+      <Field
+        label="Lives"
+        value={lives}
+        onChangeText={setLives}
+        keyboardType="number-pad"
+        error={fieldErrors.lives}
+      />
       <Text style={styles.hint}>Timezone: {timezone}</Text>
 
       <Text style={styles.section}>Companions</Text>
       <View style={styles.row}>
         <TextInput
-          style={[styles.input, { flex: 1 }]}
-          placeholder="Phone number"
+          style={[styles.input, { flex: 1 }, fieldErrors.companions ? styles.inputError : null]}
+          placeholder="Phone number (dev: 9000000002)"
           value={companionPhone}
           onChangeText={setCompanionPhone}
           keyboardType="phone-pad"
@@ -150,6 +188,9 @@ export default function CreateChallengeScreen() {
           <Text style={styles.smallBtnText}>Add</Text>
         </Pressable>
       </View>
+      {fieldErrors.companions ? (
+        <Text style={styles.errorText}>{fieldErrors.companions}</Text>
+      ) : null}
       {companionIds.map((cid) => (
         <Text key={cid} style={styles.companionId}>
           Companion: {cid.slice(0, 8)}…
@@ -162,7 +203,9 @@ export default function CreateChallengeScreen() {
       )}
 
       <Pressable style={styles.primary} onPress={submit} disabled={loading}>
-        <Text style={styles.primaryText}>{editId ? 'Save draft' : 'Create challenge'}</Text>
+        <Text style={styles.primaryText}>
+          {loading ? 'Saving…' : editId ? 'Save draft' : 'Create challenge'}
+        </Text>
       </Pressable>
       {editId && (
         <Pressable style={styles.danger} onPress={deleteDraft}>
@@ -178,21 +221,24 @@ function Field({
   value,
   onChangeText,
   keyboardType,
+  error,
 }: {
   label: string;
   value: string;
   onChangeText: (t: string) => void;
   keyboardType?: 'default' | 'number-pad';
+  error?: string;
 }) {
   return (
     <>
       <Text style={styles.label}>{label}</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, error ? styles.inputError : null]}
         value={value}
         onChangeText={onChangeText}
         keyboardType={keyboardType}
       />
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </>
   );
 }
@@ -207,8 +253,10 @@ const styles = StyleSheet.create({
     borderColor: '#d1d5db',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 12,
+    marginBottom: 4,
   },
+  inputError: { borderColor: '#b91c1c' },
+  errorText: { color: '#b91c1c', fontSize: 12, marginBottom: 8 },
   hint: { fontSize: 12, color: '#9ca3af', marginBottom: 12 },
   section: { fontSize: 16, fontWeight: '600', marginTop: 8, marginBottom: 8 },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 8 },

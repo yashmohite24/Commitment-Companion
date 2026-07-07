@@ -30,6 +30,13 @@ export function validateCreateChallenge(input: CreateChallengeInput): {
   if (input.wager.length === 0 || input.wager.length > 300) {
     return { ok: false, error: "Wager must be 1–300 characters" };
   }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.start_date)) {
+    return { ok: false, error: "Invalid start date" };
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  if (input.start_date < today) {
+    return { ok: false, error: "Start date must be today or later" };
+  }
   if (input.activeChallengeCount >= MAX_ACTIVE_CHALLENGES) {
     return {
       ok: false,

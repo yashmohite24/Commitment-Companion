@@ -59,5 +59,7 @@ POST `/functions/v1/submit-feedback` with JWT body `{ header, message }`.
 
 - `get_profile_stats()` — profile tab statistics
 - `search_profiles_by_phone(p_digits)` — companion picker
+- `check_phone_registered(p_phone)` — signup duplicate check
+- `get_login_email_by_phone(p_phone)` — login V1 (phone → email)
 
 Domain writes use the service role inside Edge Functions. Clients read via RLS.
