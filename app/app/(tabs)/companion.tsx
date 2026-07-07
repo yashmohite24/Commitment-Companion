@@ -13,6 +13,7 @@ import { CompanionChallengeCard } from '@/src/components/CompanionChallengeCard'
 import { CompanionRequestCard } from '@/src/components/CompanionRequestCard';
 import { deriveCardStatus, isActiveChallenge } from '@/src/lib/card-status';
 import { formatProfileName } from '@/src/lib/challenge-display';
+import { indexTodayCheckIns, todayDatesByChallenge } from '@/src/lib/challenge-time';
 import { invokeChallengeAction } from '@/src/lib/challenge-actions';
 import { supabase } from '@/src/lib/supabase';
 import type { Challenge, DailyCheckIn } from '@/src/lib/types';
@@ -74,7 +75,6 @@ export default function CompanionScreen() {
   const [checkIns, setCheckIns] = useState<Record<string, DailyCheckIn>>({});
   const [doneCounts, setDoneCounts] = useState<Record<string, number>>({});
   const [refreshing, setRefreshing] = useState(false);
-  const today = new Date().toISOString().slice(0, 10);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -120,14 +120,15 @@ export default function CompanionScreen() {
       return;
     }
 
+    const dateByChallenge = todayDatesByChallenge(chList);
+    const uniqueDates = [...new Set(dateByChallenge.values())];
+
     const { data: todayRows } = await supabase
       .from('daily_check_ins')
       .select('*')
       .in('challenge_id', ids)
-      .eq('check_in_date', today);
-    const map: Record<string, DailyCheckIn> = {};
-    for (const row of todayRows ?? []) map[row.challenge_id] = row as DailyCheckIn;
-    setCheckIns(map);
+      .in('check_in_date', uniqueDates);
+    setCheckIns(indexTodayCheckIns((todayRows ?? []) as DailyCheckIn[], dateByChallenge));
 
     const { data: allCheckIns } = await supabase
       .from('daily_check_ins')
@@ -139,7 +140,7 @@ export default function CompanionScreen() {
       if (ci.status === 'done') counts[ci.challenge_id] = (counts[ci.challenge_id] ?? 0) + 1;
     }
     setDoneCounts(counts);
-  }, [user, filter, today]);
+  }, [user, filter]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 

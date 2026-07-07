@@ -29,10 +29,23 @@ export function isValidDisplayDateString(value: string): boolean {
   return parseDisplayDate(value) !== null;
 }
 
-/** ISO timestamp → DD-MM-YYYY HH:MM (local). */
-export function formatDisplayDateTime(isoTimestamp: string): string {
+/** ISO timestamp → DD-MM-YYYY HH:MM in optional IANA timezone (defaults to device local). */
+export function formatDisplayDateTime(isoTimestamp: string, timezone?: string): string {
   const d = new Date(isoTimestamp);
   if (Number.isNaN(d.getTime())) return isoTimestamp;
+  if (timezone) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: timezone,
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(d);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
+    return `${get('day')}-${get('month')}-${get('year')} ${get('hour')}:${get('minute')}`;
+  }
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

@@ -10,6 +10,7 @@ import {
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { ChallengeCard } from '@/src/components/ChallengeCard';
 import { deriveCardStatus, isActiveChallenge } from '@/src/lib/card-status';
+import { indexTodayCheckIns, todayDatesByChallenge } from '@/src/lib/challenge-time';
 import { supabase } from '@/src/lib/supabase';
 import type { Challenge, DailyCheckIn } from '@/src/lib/types';
 import { useAuth } from '@/src/context/AuthContext';
@@ -24,8 +25,6 @@ export default function ChallengesScreen() {
   const [checkIns, setCheckIns] = useState<Record<string, DailyCheckIn>>({});
   const [doneCounts, setDoneCounts] = useState<Record<string, number>>({});
   const [refreshing, setRefreshing] = useState(false);
-
-  const today = new Date().toISOString().slice(0, 10);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -47,17 +46,16 @@ export default function ChallengesScreen() {
       return;
     }
 
+    const dateByChallenge = todayDatesByChallenge(filtered);
+    const uniqueDates = [...new Set(dateByChallenge.values())];
+
     const { data: todayRows } = await supabase
       .from('daily_check_ins')
       .select('*')
       .in('challenge_id', ids)
-      .eq('check_in_date', today);
+      .in('check_in_date', uniqueDates);
 
-    const map: Record<string, DailyCheckIn> = {};
-    for (const row of todayRows ?? []) {
-      map[row.challenge_id] = row as DailyCheckIn;
-    }
-    setCheckIns(map);
+    setCheckIns(indexTodayCheckIns((todayRows ?? []) as DailyCheckIn[], dateByChallenge));
 
     const { data: allCheckIns } = await supabase
       .from('daily_check_ins')
@@ -70,7 +68,7 @@ export default function ChallengesScreen() {
       if (ci.status === 'done') counts[ci.challenge_id] = (counts[ci.challenge_id] ?? 0) + 1;
     }
     setDoneCounts(counts);
-  }, [user, filter, today]);
+  }, [user, filter]);
 
   useFocusEffect(
     useCallback(() => {

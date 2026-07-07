@@ -13,7 +13,7 @@
 | 8 | Push notifications | Done |
 | 9 | Feedback + SMS | Done |
 | 10 | QA + EAS scaffolding | Done — [TEST_MATRIX.md](./TEST_MATRIX.md) |
-| **11** | **QA bug fixes (bugs 1–13)** | **Done** — [Bugs.md](./Bugs.md) |
+| **11** | **QA bug fixes (bugs 1–14)** | **Done** — [Bugs.md](./Bugs.md) |
 | **12** | **Sign up (US 10)** | **Done** — welcome, signup, OTP verify |
 | **13** | **Login (US 11)** | **Done** — phone + password V1 |
 | 14 | Re-run E2E test matrix | Pending |

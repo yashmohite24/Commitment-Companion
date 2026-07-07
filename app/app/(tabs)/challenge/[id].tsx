@@ -12,6 +12,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-rou
 import { ActivityFeed } from '@/src/components/ActivityFeed';
 import { ChallengeDetails } from '@/src/components/ChallengeDetails';
 import { deriveCardStatus } from '@/src/lib/card-status';
+import { todayInTimezone } from '@/src/lib/challenge-time';
 import { invokeChallengeAction } from '@/src/lib/challenge-actions';
 import { pickAndUploadCheckIn, pickAndUploadWager } from '@/src/lib/upload';
 import { supabase } from '@/src/lib/supabase';
@@ -27,7 +28,7 @@ export default function ChallengeOverviewScreen() {
   const [isCompanion, setIsCompanion] = useState(false);
   const [isChallenger, setIsChallenger] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const today = new Date().toISOString().slice(0, 10);
+  const [checkInDate, setCheckInDate] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id || !user) return;
@@ -35,6 +36,9 @@ export default function ChallengeOverviewScreen() {
     if (!ch) return;
     setChallenge(ch as Challenge);
     setIsChallenger(ch.challenger_id === user.id);
+
+    const localToday = todayInTimezone(new Date(), ch.timezone);
+    setCheckInDate(localToday);
 
     const { data: part } = await supabase
       .from('challenge_participations')
@@ -49,10 +53,10 @@ export default function ChallengeOverviewScreen() {
       .from('daily_check_ins')
       .select('*')
       .eq('challenge_id', id)
-      .eq('check_in_date', today)
+      .eq('check_in_date', localToday)
       .maybeSingle();
     setTodayCheckIn((ci as DailyCheckIn) ?? null);
-  }, [id, user, today]);
+  }, [id, user]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -68,9 +72,10 @@ export default function ChallengeOverviewScreen() {
   });
 
   const handleCheckIn = async () => {
+    if (!checkInDate) return;
     setSubmitting(true);
     try {
-      const result = await pickAndUploadCheckIn(challenge.id, today);
+      const result = await pickAndUploadCheckIn(challenge.id, checkInDate);
       if (!result.ok) {
         if (result.reason === 'cancelled') return;
         Alert.alert('Check-in failed', result.message ?? 'Could not submit proof.');
@@ -192,7 +197,11 @@ export default function ChallengeOverviewScreen() {
         </Pressable>
       )}
 
-      <ActivityFeed challengeId={challenge.id} isCompanion={isCompanion} />
+      <ActivityFeed
+        challengeId={challenge.id}
+        isCompanion={isCompanion}
+        timezone={challenge.timezone}
+      />
     </ScrollView>
   );
 }

@@ -1,5 +1,7 @@
 /** Client-side challenge form validation (mirrors server rules where possible). */
 
+import { todayInTimezone } from './challenge-time';
+
 export const MAX_ACTIVE_CHALLENGES = 5;
 export const MAX_COMPANIONS = 10;
 export const MIN_CHALLENGE_DAYS = 7;
@@ -34,14 +36,17 @@ export function isValidDateString(value: string): boolean {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
 }
 
-export function validateChallengeForm(input: {
-  name: string;
-  start_date: string;
-  end_date: string;
-  wager: string;
-  lives_total: number;
-  companionCount: number;
-}): { ok: boolean; errors: ChallengeFieldErrors } {
+export function validateChallengeForm(
+  input: {
+    name: string;
+    start_date: string;
+    end_date: string;
+    wager: string;
+    lives_total: number;
+    companionCount: number;
+  },
+  timezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone,
+): { ok: boolean; errors: ChallengeFieldErrors } {
   const errors: ChallengeFieldErrors = {};
 
   const name = input.name.trim();
@@ -57,7 +62,7 @@ export function validateChallengeForm(input: {
   if (!isValidDateString(input.start_date)) {
     errors.start_date = 'Enter start date as DD-MM-YYYY';
   } else {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayInTimezone(new Date(), timezone);
     if (input.start_date < today) {
       errors.start_date = 'Start date must be today or later';
     }

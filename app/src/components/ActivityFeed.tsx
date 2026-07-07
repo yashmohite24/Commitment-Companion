@@ -25,9 +25,10 @@ interface FeedItem {
 interface Props {
   challengeId: string;
   isCompanion: boolean;
+  timezone?: string;
 }
 
-export function ActivityFeed({ challengeId, isCompanion }: Props) {
+export function ActivityFeed({ challengeId, isCompanion, timezone }: Props) {
   const { user } = useAuth();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,7 +113,7 @@ export function ActivityFeed({ challengeId, isCompanion }: Props) {
       )}
       {items.map((item) => (
         <View key={`${item.type}-${item.id}`} style={styles.item}>
-          <Text style={styles.time}>{formatDisplayDateTime(item.createdAt)}</Text>
+          <Text style={styles.time}>{formatDisplayDateTime(item.createdAt, timezone)}</Text>
           <Text style={styles.msg}>{item.message}</Text>
           {item.type === 'proof' && isCompanion && item.proofId && (
             <View style={styles.actions}>

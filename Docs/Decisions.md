@@ -88,6 +88,21 @@ Unsettled failed challenges count in the denominator but not the numerator.
 
 ---
 
+### B9 — Challenge calendar timezone (2026-07-08)
+
+**Decision:** All challenge calendar-day logic uses the **`challenges.timezone`** field (IANA name, captured from the challenger's device at create time). This matches the backend (`todayInTimezone`, deadline sweeper, activation).
+
+| Layer | Rule |
+|-------|------|
+| **Server** | Deadlines, activation, missed check-ins, success — already use `challenge.timezone` |
+| **Client** | Check-in day selection, card status, upload `check_in_date`, activity feed timestamps, create-form "start ≥ today" — use `todayInTimezone(now, challenge.timezone)` |
+
+**Never** use `Date.toISOString().slice(0, 10)` (UTC) for challenge day boundaries on the client.
+
+**Code:** `app/src/lib/challenge-time.ts`
+
+---
+
 ## SMS invites (I4)
 
 **Decision:** Generic app download link via Twilio. No pre-association; invitee registers normally and companion request must still be accepted in-app.

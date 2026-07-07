@@ -78,14 +78,17 @@ export default function CreateChallengeScreen() {
       return;
     }
 
-    const validation = validateChallengeForm({
-      name,
-      start_date: startIso,
-      end_date: endIso,
-      wager,
-      lives_total: parseInt(lives, 10) || 0,
-      companionCount: companionIds.length,
-    });
+    const validation = validateChallengeForm(
+      {
+        name,
+        start_date: startIso,
+        end_date: endIso,
+        wager,
+        lives_total: parseInt(lives, 10) || 0,
+        companionCount: companionIds.length,
+      },
+      timezone,
+    );
     setFieldErrors(validation.errors);
     if (!validation.ok) return;
 

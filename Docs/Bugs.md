@@ -17,6 +17,7 @@
 | 11 — Challenger name Unknown | **Fixed** | RPC + RLS `profiles_select_challenge_linked`                     |
 | 12 — Date format ISO        | **Fixed** | `formatDisplayDate()` across UI; DD-MM-YYYY on create form       |
 | 13 — Upload filesystem crash | **Fixed** | `fetch` blob read + PUT upload (no expo-file-system) |
+| 14 — UTC vs challenge TZ    | **Fixed** | `challenge-time.ts`; all client day logic uses `challenge.timezone` |
 
 
 ---
@@ -231,3 +232,19 @@ Expected behaviour: the cxhallenger should be able to upload the proof of work f
 **Fix:** Import from `expo-file-system/legacy` for size checks and binary upload. **Follow-up:** Removed `expo-file-system` entirely; upload now reads blobs via `fetch(uri)` and PUTs to signed URLs (works on web + native without deprecated APIs).
 
 **Files:** `app/src/lib/upload.ts`
+
+---
+
+## Bug 14 — Check-in status stuck on "Missed" after new day
+
+Where: Challenger overview / challenge cards after a missed day when local calendar has rolled over
+
+Current behaviour: After missing yesterday's check-in (life consumed), the new day still shows "Missed" with no Check In button.
+
+Expected behaviour: At midnight in the challenge timezone, today's row (`pending`) should appear with Check In available until daily deadline.
+
+**RCA:** Client used `new Date().toISOString().slice(0, 10)` (UTC calendar date) to load `daily_check_ins`. For timezones ahead of UTC (e.g. Asia/Kolkata), the app kept loading yesterday's `missed` row for hours after local midnight. Server already used `challenge.timezone`.
+
+**Fix:** Added `todayInTimezone()` and helpers in `app/src/lib/challenge-time.ts`. Challenges, companion, and overview screens load today's check-in per challenge timezone; upload sends the same date. Activity feed timestamps use challenge timezone. Create-form validation uses device timezone (stored as `challenge.timezone`).
+
+**Files:** `app/src/lib/challenge-time.ts`, `app/app/(tabs)/challenges.tsx`, `app/app/(tabs)/companion.tsx`, `app/app/(tabs)/challenge/[id].tsx`, `app/src/lib/challenge-validation.ts`, `app/src/components/ActivityFeed.tsx`, [Decisions.md B9](./Decisions.md)
