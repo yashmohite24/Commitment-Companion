@@ -1,7 +1,9 @@
 import { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -24,6 +26,7 @@ export default function ChallengeOverviewScreen() {
   const [todayCheckIn, setTodayCheckIn] = useState<DailyCheckIn | null>(null);
   const [isCompanion, setIsCompanion] = useState(false);
   const [isChallenger, setIsChallenger] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
 
   const load = useCallback(async () => {
@@ -65,22 +68,34 @@ export default function ChallengeOverviewScreen() {
   });
 
   const handleCheckIn = async () => {
+    setSubmitting(true);
     try {
-      await pickAndUploadCheckIn(challenge.id, today);
+      const result = await pickAndUploadCheckIn(challenge.id, today);
+      if (!result.ok) {
+        if (result.reason === 'cancelled') return;
+        Alert.alert('Check-in failed', result.message ?? 'Could not submit proof.');
+        return;
+      }
       await load();
-      Alert.alert('Submitted', 'Proof of work submitted for verification.');
-    } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Upload failed');
+      Alert.alert('Submitted', 'Proof of work sent to companions for verification.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleSettleWager = async () => {
+    setSubmitting(true);
     try {
-      await pickAndUploadWager(challenge.id);
+      const result = await pickAndUploadWager(challenge.id);
+      if (!result.ok) {
+        if (result.reason === 'cancelled') return;
+        Alert.alert('Upload failed', result.message ?? 'Could not submit settlement proof.');
+        return;
+      }
       await load();
       Alert.alert('Submitted', 'Wager settlement proof submitted.');
-    } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -123,19 +138,33 @@ export default function ChallengeOverviewScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: challenge.name }} />
       <ChallengeDetails challenge={challenge} />
       <Text style={styles.status}>{cardStatus.label}</Text>
 
       {isChallenger && cardStatus.ctaAction === 'check_in' && (
-        <Pressable style={styles.action} onPress={handleCheckIn}>
-          <Text style={styles.actionText}>Check In</Text>
+        <Pressable
+          style={[styles.action, submitting && styles.actionDisabled]}
+          onPress={handleCheckIn}
+          disabled={submitting}>
+          {submitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.actionText}>Check In</Text>
+          )}
         </Pressable>
       )}
       {isChallenger && cardStatus.ctaAction === 'settle_wager' && (
-        <Pressable style={styles.action} onPress={handleSettleWager}>
-          <Text style={styles.actionText}>Settle Wager</Text>
+        <Pressable
+          style={[styles.action, submitting && styles.actionDisabled]}
+          onPress={handleSettleWager}
+          disabled={submitting}>
+          {submitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.actionText}>Settle Wager</Text>
+          )}
         </Pressable>
       )}
       {isCompanion && challenge.status === 'failed' && (
@@ -150,12 +179,13 @@ export default function ChallengeOverviewScreen() {
       )}
 
       <ActivityFeed challengeId={challenge.id} isCompanion={isCompanion} />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f3f4f6' },
+  content: { paddingBottom: 24 },
   status: { padding: 12, fontWeight: '500', backgroundColor: '#fff' },
   action: {
     margin: 12,
@@ -164,6 +194,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
+  actionDisabled: { opacity: 0.7 },
   leave: { backgroundColor: '#6b7280' },
   actionText: { color: '#fff', fontWeight: '600' },
 });

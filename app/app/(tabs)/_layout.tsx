@@ -25,6 +25,13 @@ export default function TabLayout() {
         name="profile"
         options={{ title: 'My Profile', tabBarLabel: 'Profile' }}
       />
+      <Tabs.Screen
+        name="challenge"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
     </Tabs>
   );
 }

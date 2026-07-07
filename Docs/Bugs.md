@@ -8,6 +8,10 @@
 | 3 — Create button blocked | **Fixed** | Migration `20260707120011_seed_dev_profiles.sql` + inline errors |
 | 4 — Profile name input | **Fixed** | US 10 schema + read-only profile name |
 | 5 — Wager ratio 100% | **Fixed** | Migration `20260707120010_profile_stats_ratio_fix.sql` |
+| 6 — Companion request card | **Fixed** | `CompanionRequestCard` + layout order in companion tab |
+| 7 — Companion live cards | **Fixed** | `CompanionChallengeCard` + challenger profile fetch |
+| 8 — Check-in proof upload | **Fixed** | `upload.ts` ImagePicker + `UploadResult`; no false success |
+| 9 — Tabs hidden on overview | **Fixed** | Challenge overview moved under `(tabs)/challenge/[id]` |
 
 ---
 
@@ -60,3 +64,58 @@
 **Fix:** Return `0` when `challenges_created = 0` or `v_wagers_total = 0`.
 
 **Files:** `supabase/migrations/20260707120010_profile_stats_ratio_fix.sql`
+
+
+---
+
+## Bug 6 - Accepting Companion Request: 
+where: Companion section, new companion request created
+Current behaviour: the companion request currently doesn't show all the details mentioned in user story 7, currently only showing Challenge name, Wager. Moreover the request is now being shown above the tags which is incorrect. Tags will always remain above all the requests
+Expected Behaviour - match the requirements mentioned in user story 7
+
+**RCA:** Companion tab rendered pending requests before Live/Past filter chips. Request cards used inline JSX with only name and wager; challenger name and date range were not fetched from `profiles`.
+
+**Fix:** Live/Past filters render first in `ListHeaderComponent`. New `CompanionRequestCard` shows challenger name, challenge name, wager, and date range. Batch-load challenger profiles via `formatProfileName()`.
+
+**Files:** `app/app/(tabs)/companion.tsx`, `app/src/components/CompanionRequestCard.tsx`, `app/src/lib/challenge-display.ts`
+
+---
+
+## Bug 7 - Viewing challenge as a companion
+Where: Challenges section -> view live challenges
+Current Behaviour : when a live challenge is visible to a companion, it doesn't show all the details mentioned in user story 7
+Expected behaviour - match the requirements mentioned in user story 7 
+
+**RCA:** Companion tab reused generic `ChallengeCard` built for challengers; missing challenger name, progress context, and “time left to verify” for pending proofs.
+
+**Fix:** New `CompanionChallengeCard` with challenger name, progress bar, card status, verify deadline countdown, and CTA. Companion tab loads today's check-ins and done counts per challenge.
+
+**Files:** `app/app/(tabs)/companion.tsx`, `app/src/components/CompanionChallengeCard.tsx`, `app/src/lib/challenge-display.ts`
+
+---
+
+## Bug 8 - Submitting proof of work as a challenger
+Where - challenge overview - submit proof of work
+Current Behaviour: I click on Check in -> the media selection component opens up -> I select media and that is the end of the flow. The proof of work is not being submitted
+Expected Behaviour: when the user submits the proof of work, it should go to the companion for approval
+
+**RCA:** `DocumentPicker` + silent early returns on cancel left the UI showing no feedback and upload often failed on native/web without completing storage PUT + `submit_check_in`. Success alert could fire even when upload did not finish.
+
+**Fix:** Replaced picker with `expo-image-picker`. Upload via signed URL (`FileSystem.uploadAsync` on native, `fetch` PUT on web). Returns typed `UploadResult`; overview only shows success after `submit_check_in` succeeds and shows errors otherwise. Button shows loading state while uploading.
+
+**Files:** `app/src/lib/upload.ts`, `app/app/(tabs)/challenge/[id].tsx`
+
+---
+
+## Bug 9 - Bottom tabs/ sections disappear on challenge overview
+
+Where: challenge overview as a companion
+Current behaviour: as a companion when I open the a challenge, tabs (Companion , Challenge, Profile) disappears
+Expected Behaviour: when the companion enters challnege overview, the 3 tabs to the bottom of the screen should not hidden, it should be visible
+
+**RCA:** Challenge overview lived at root Stack route `app/challenge/[id].tsx`, outside the `(tabs)` layout, so the tab navigator unmounted on navigation.
+
+**Fix:** Moved overview to `app/(tabs)/challenge/[id].tsx` with nested Stack layout. Registered `challenge` tab screen with `href: null` so it stays off the tab bar but inside the tab shell. Removed root Stack screen for `[id]`.
+
+**Files:** `app/app/(tabs)/challenge/_layout.tsx`, `app/app/(tabs)/challenge/[id].tsx`, `app/app/(tabs)/_layout.tsx`, `app/app/_layout.tsx`
+

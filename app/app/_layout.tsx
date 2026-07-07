@@ -33,7 +33,6 @@ export default function RootLayout() {
         <Stack.Screen name="signup" options={{ title: 'Sign Up' }} />
         <Stack.Screen name="signup-verify" options={{ title: 'Verify Phone' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="challenge/[id]" options={{ title: 'Challenge' }} />
         <Stack.Screen name="challenge/create" options={{ title: 'New Challenge' }} />
       </Stack>
     </AuthProvider>

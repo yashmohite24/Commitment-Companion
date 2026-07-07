@@ -9,8 +9,10 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ChallengeCard } from '@/src/components/ChallengeCard';
+import { CompanionChallengeCard } from '@/src/components/CompanionChallengeCard';
+import { CompanionRequestCard } from '@/src/components/CompanionRequestCard';
 import { deriveCardStatus, isActiveChallenge } from '@/src/lib/card-status';
+import { formatProfileName } from '@/src/lib/challenge-display';
 import { invokeChallengeAction } from '@/src/lib/challenge-actions';
 import { supabase } from '@/src/lib/supabase';
 import type { Challenge, DailyCheckIn } from '@/src/lib/types';
@@ -24,12 +26,27 @@ interface CompanionRequest {
   challenges: Challenge;
 }
 
+async function loadProfileNames(userIds: string[]): Promise<Record<string, string>> {
+  const unique = [...new Set(userIds.filter(Boolean))];
+  if (!unique.length) return {};
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, first_name, last_name, display_name')
+    .in('id', unique);
+  const map: Record<string, string> = {};
+  for (const row of data ?? []) {
+    map[row.id] = formatProfileName(row);
+  }
+  return map;
+}
+
 export default function CompanionScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('live');
   const [requests, setRequests] = useState<CompanionRequest[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [challengerNames, setChallengerNames] = useState<Record<string, string>>({});
   const [checkIns, setCheckIns] = useState<Record<string, DailyCheckIn>>({});
   const [doneCounts, setDoneCounts] = useState<Record<string, number>>({});
   const [refreshing, setRefreshing] = useState(false);
@@ -43,7 +60,8 @@ export default function CompanionScreen() {
       .select('id, challenge_id, challenges(*)')
       .eq('companion_user_id', user.id)
       .eq('status', 'pending');
-    setRequests((reqData ?? []) as CompanionRequest[]);
+    const reqList = (reqData ?? []) as CompanionRequest[];
+    setRequests(reqList);
 
     const { data: parts } = await supabase
       .from('challenge_participations')
@@ -58,6 +76,12 @@ export default function CompanionScreen() {
         filter === 'live' ? isActiveChallenge(c.status) : !isActiveChallenge(c.status),
       );
     setChallenges(chList);
+
+    const nameIds = [
+      ...reqList.map((r) => r.challenges?.challenger_id),
+      ...chList.map((c) => c.challenger_id),
+    ];
+    setChallengerNames(await loadProfileNames(nameIds));
 
     const ids = chList.map((c) => c.id);
     if (ids.length === 0) {
@@ -104,28 +128,10 @@ export default function CompanionScreen() {
     setRefreshing(false);
   };
 
-  return (
-    <View style={styles.container}>
-      {requests.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Companion Requests</Text>
-          {requests.map((r) => (
-            <View key={r.id} style={styles.reqCard}>
-              <Text style={styles.reqName}>{r.challenges.name}</Text>
-              <Text style={styles.reqMeta}>Wager: {r.challenges.wager}</Text>
-              <View style={styles.row}>
-                <Pressable style={styles.accept} onPress={() => respond(r.id, 'accepted')}>
-                  <Text style={styles.btnText}>Accept</Text>
-                </Pressable>
-                <Pressable style={styles.reject} onPress={() => respond(r.id, 'rejected')}>
-                  <Text style={styles.btnText}>Reject</Text>
-                </Pressable>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
+  const openChallenge = (id: string) => router.push(`/challenge/${id}`);
 
+  const listHeader = (
+    <>
       <View style={styles.filters}>
         {(['live', 'past'] as Filter[]).map((f) => (
           <Pressable
@@ -139,12 +145,40 @@ export default function CompanionScreen() {
         ))}
       </View>
 
+      {requests.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Companion Requests</Text>
+          {requests.map((r) => (
+            <CompanionRequestCard
+              key={r.id}
+              challengerName={
+                challengerNames[r.challenges.challenger_id] ?? 'Unknown'
+              }
+              challenge={r.challenges}
+              onAccept={() => respond(r.id, 'accepted')}
+              onReject={() => respond(r.id, 'rejected')}
+            />
+          ))}
+        </View>
+      )}
+
+      <Text style={styles.sectionTitle}>
+        {filter === 'live' ? 'Ongoing Challenges' : 'Past Challenges'}
+      </Text>
+    </>
+  );
+
+  return (
+    <View style={styles.container}>
       <FlatList
         data={challenges}
         keyExtractor={(item) => item.id}
+        ListHeaderComponent={listHeader}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.empty}>No {filter} companion challenges.</Text>}
+        ListEmptyComponent={
+          <Text style={styles.empty}>No {filter} companion challenges.</Text>
+        }
         renderItem={({ item }) => {
           const totalDays = Math.max(
             1,
@@ -153,20 +187,23 @@ export default function CompanionScreen() {
                 86400000,
             ) + 1,
           );
+          const todayCheckIn = checkIns[item.id] ?? null;
           const cardStatus = deriveCardStatus({
             challenge: item,
-            todayCheckIn: checkIns[item.id] ?? null,
+            todayCheckIn,
             role: 'companion',
-            hasPendingProof: checkIns[item.id]?.status === 'pending_validation',
+            hasPendingProof: todayCheckIn?.status === 'pending_validation',
           });
           return (
-            <ChallengeCard
+            <CompanionChallengeCard
               challenge={item}
+              challengerName={challengerNames[item.challenger_id] ?? 'Unknown'}
               cardStatus={cardStatus}
+              todayCheckIn={todayCheckIn}
               doneCount={doneCounts[item.id] ?? 0}
               totalDays={totalDays}
-              onPress={() => router.push(`/challenge/${item.id}`)}
-              onCta={() => router.push(`/challenge/${item.id}`)}
+              onPress={() => openChallenge(item.id)}
+              onCta={() => openChallenge(item.id)}
             />
           );
         }}
@@ -177,26 +214,30 @@ export default function CompanionScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f3f4f6' },
-  section: { padding: 12, backgroundColor: '#fff', marginBottom: 8 },
-  sectionTitle: { fontWeight: '700', fontSize: 16, marginBottom: 8 },
-  reqCard: {
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
+  filters: {
+    flexDirection: 'row',
     padding: 12,
+    gap: 8,
+    backgroundColor: '#fff',
     marginBottom: 8,
   },
-  reqName: { fontWeight: '600', fontSize: 16 },
-  reqMeta: { color: '#6b7280', marginVertical: 4 },
-  row: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  accept: { backgroundColor: '#15803d', padding: 8, borderRadius: 6, flex: 1, alignItems: 'center' },
-  reject: { backgroundColor: '#b91c1c', padding: 8, borderRadius: 6, flex: 1, alignItems: 'center' },
-  btnText: { color: '#fff', fontWeight: '600' },
-  filters: { flexDirection: 'row', padding: 12, gap: 8, backgroundColor: '#fff' },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#e5e7eb' },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#e5e7eb',
+  },
   chipActive: { backgroundColor: '#2563eb' },
   chipText: { color: '#374151' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
-  list: { padding: 12 },
+  section: { paddingHorizontal: 12, marginBottom: 8 },
+  sectionTitle: {
+    fontWeight: '700',
+    fontSize: 16,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    marginTop: 4,
+  },
+  list: { paddingHorizontal: 12, paddingBottom: 24 },
   empty: { textAlign: 'center', color: '#6b7280', marginTop: 24 },
 });
