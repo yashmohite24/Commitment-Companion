@@ -14,9 +14,9 @@
 | 8 — Check-in proof upload   | **Fixed** | `upload.ts` ImagePicker + `UploadResult`; no false success       |
 | 9 — Tabs hidden on overview | **Fixed** | Challenge overview moved under `(tabs)/challenge/[id]`           |
 | 10 — No back on overview    | **Fixed** | Custom header back button + fallback tab route                   |
-| 11 — Challenger name Unknown | **Fixed** | RPC `get_challenge_participant_profiles`                         |
+| 11 — Challenger name Unknown | **Fixed** | RPC + RLS `profiles_select_challenge_linked`                     |
 | 12 — Date format ISO        | **Fixed** | `formatDisplayDate()` across UI; DD-MM-YYYY on create form       |
-| 13 — Upload filesystem crash | **Fixed** | `expo-file-system/legacy` import in `upload.ts`                  |
+| 13 — Upload filesystem crash | **Fixed** | `fetch` blob read + PUT upload (no expo-file-system) |
 
 
 ---
@@ -173,9 +173,9 @@ Expected behaviour: actual name of the challenger should be shown
 
 **RCA:** Companion tab queried `profiles` directly, but RLS only allows `SELECT` on your own row (`profiles_select_own`). Challenger rows are blocked → empty map → `'Unknown'` fallback.
 
-**Fix:** `SECURITY DEFINER` RPC `get_challenge_participant_profiles(p_user_ids)` returns name fields only for users linked via shared challenge/companion request. Companion tab calls RPC instead of direct table select.
+**Fix:** `SECURITY DEFINER` RPC `get_challenge_participant_profiles(p_user_ids)` returns name fields only for users linked via shared challenge/companion request. Companion tab calls RPC instead of direct table select. **Follow-up:** Added RLS policy `profiles_select_challenge_linked` via `user_can_view_profile()` (migration `20260707120013`); companion tab falls back to direct `profiles` select and normalizes embedded `challenges` when PostgREST returns an array.
 
-**Files:** `supabase/migrations/20260707120012_participant_profiles_rpc.sql`, `app/app/(tabs)/companion.tsx`
+**Files:** `supabase/migrations/20260707120012_participant_profiles_rpc.sql`, `supabase/migrations/20260707120013_profiles_linked_select_rls.sql`, `app/app/(tabs)/companion.tsx`
 
 ---
 
@@ -228,6 +228,6 @@ Expected behaviour: the cxhallenger should be able to upload the proof of work f
 
 **RCA:** Expo SDK 57 deprecates `getInfoAsync` / `uploadAsync` on the main `expo-file-system` import and throws at runtime.
 
-**Fix:** Import from `expo-file-system/legacy` for size checks and binary upload.
+**Fix:** Import from `expo-file-system/legacy` for size checks and binary upload. **Follow-up:** Removed `expo-file-system` entirely; upload now reads blobs via `fetch(uri)` and PUTs to signed URLs (works on web + native without deprecated APIs).
 
 **Files:** `app/src/lib/upload.ts`

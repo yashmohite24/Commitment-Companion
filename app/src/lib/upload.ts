@@ -1,6 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 import { invokeChallengeAction } from './challenge-actions';
 import { MAX_MEDIA_BYTES } from './types';
 
@@ -8,29 +7,19 @@ export type UploadResult =
   | { ok: true }
   | { ok: false; reason: 'cancelled' | 'too_large' | 'error'; message?: string };
 
-async function uploadUri(uri: string, signedUrl: string, contentType: string): Promise<void> {
-  if (Platform.OS === 'web') {
-    const blob = await fetch(uri).then((r) => {
-      if (!r.ok) throw new Error('Could not read selected file');
-      return r.blob();
-    });
-    const res = await fetch(signedUrl, {
-      method: 'PUT',
-      body: blob,
-      headers: { 'Content-Type': contentType },
-    });
-    if (!res.ok) throw new Error(`Storage upload failed (${res.status})`);
-    return;
-  }
+async function readAssetBlob(uri: string): Promise<Blob> {
+  const res = await fetch(uri);
+  if (!res.ok) throw new Error('Could not read selected file');
+  return res.blob();
+}
 
-  const result = await FileSystem.uploadAsync(signedUrl, uri, {
-    httpMethod: 'PUT',
-    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+async function uploadBlob(blob: Blob, signedUrl: string, contentType: string): Promise<void> {
+  const res = await fetch(signedUrl, {
+    method: 'PUT',
+    body: blob,
     headers: { 'Content-Type': contentType },
   });
-  if (result.status < 200 || result.status >= 300) {
-    throw new Error(`Storage upload failed (${result.status})`);
-  }
+  if (!res.ok) throw new Error(`Storage upload failed (${res.status})`);
 }
 
 async function pickImages(): Promise<ImagePicker.ImagePickerAsset[] | null> {
@@ -56,30 +45,30 @@ export async function pickAndUploadCheckIn(
   const assets = await pickImages();
   if (!assets?.length) return { ok: false, reason: 'cancelled' };
 
-  let totalSize = 0;
-  for (const asset of assets) {
-    const info = await FileSystem.getInfoAsync(asset.uri);
-    if (info.exists && 'size' in info) totalSize += info.size ?? 0;
-  }
-  if (totalSize > MAX_MEDIA_BYTES) {
-    Alert.alert('Too large', 'Total upload must be 20 MB or less.');
-    return { ok: false, reason: 'too_large' };
-  }
-
-  const storagePaths: string[] = [];
-
   try {
+    let totalSize = 0;
+    const blobs: { blob: Blob; contentType: string }[] = [];
+
     for (const asset of assets) {
+      const blob = await readAssetBlob(asset.uri);
+      totalSize += blob.size;
+      blobs.push({ blob, contentType: asset.mimeType ?? 'image/jpeg' });
+    }
+
+    if (totalSize > MAX_MEDIA_BYTES) {
+      Alert.alert('Too large', 'Total upload must be 20 MB or less.');
+      return { ok: false, reason: 'too_large' };
+    }
+
+    const storagePaths: string[] = [];
+
+    for (const { blob, contentType } of blobs) {
       const prep = await invokeChallengeAction<{
         storage_path: string;
         signed_upload_url: string;
       }>('prepare_check_in_upload', { challenge_id: challengeId, check_in_date: checkInDate });
 
-      await uploadUri(
-        asset.uri,
-        prep.signed_upload_url,
-        asset.mimeType ?? 'image/jpeg',
-      );
+      await uploadBlob(blob, prep.signed_upload_url, contentType);
       storagePaths.push(prep.storage_path);
     }
 
@@ -100,26 +89,30 @@ export async function pickAndUploadWager(challengeId: string): Promise<UploadRes
   const assets = await pickImages();
   if (!assets?.length) return { ok: false, reason: 'cancelled' };
 
-  let totalSize = 0;
-  for (const asset of assets) {
-    const info = await FileSystem.getInfoAsync(asset.uri);
-    if (info.exists && 'size' in info) totalSize += info.size ?? 0;
-  }
-  if (totalSize > MAX_MEDIA_BYTES) {
-    Alert.alert('Too large', 'Total upload must be 20 MB or less.');
-    return { ok: false, reason: 'too_large' };
-  }
-
-  const storagePaths: string[] = [];
-
   try {
+    let totalSize = 0;
+    const blobs: { blob: Blob; contentType: string }[] = [];
+
     for (const asset of assets) {
+      const blob = await readAssetBlob(asset.uri);
+      totalSize += blob.size;
+      blobs.push({ blob, contentType: asset.mimeType ?? 'image/jpeg' });
+    }
+
+    if (totalSize > MAX_MEDIA_BYTES) {
+      Alert.alert('Too large', 'Total upload must be 20 MB or less.');
+      return { ok: false, reason: 'too_large' };
+    }
+
+    const storagePaths: string[] = [];
+
+    for (const { blob, contentType } of blobs) {
       const prep = await invokeChallengeAction<{
         storage_path: string;
         signed_upload_url: string;
       }>('prepare_wager_upload', { challenge_id: challengeId });
 
-      await uploadUri(asset.uri, prep.signed_upload_url, asset.mimeType ?? 'image/jpeg');
+      await uploadBlob(blob, prep.signed_upload_url, contentType);
       storagePaths.push(prep.storage_path);
     }
 

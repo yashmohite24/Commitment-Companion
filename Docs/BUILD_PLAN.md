@@ -27,4 +27,4 @@ supabase db push
 supabase functions deploy challenge-actions
 ```
 
-New migrations: `20260707120008`–`20260707120012`.
+New migrations: `20260707120008`–`20260707120013`.

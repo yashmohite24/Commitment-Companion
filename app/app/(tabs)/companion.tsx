@@ -23,19 +23,44 @@ type Filter = 'live' | 'past';
 interface CompanionRequest {
   id: string;
   challenge_id: string;
-  challenges: Challenge;
+  challenges: Challenge | Challenge[] | null;
+}
+
+function unwrapChallenge(
+  value: Challenge | Challenge[] | null | undefined,
+): Challenge | null {
+  if (!value) return null;
+  return Array.isArray(value) ? value[0] ?? null : value;
 }
 
 async function loadProfileNames(userIds: string[]): Promise<Record<string, string>> {
   const unique = [...new Set(userIds.filter(Boolean))];
   if (!unique.length) return {};
-  const { data } = await supabase.rpc('get_challenge_participant_profiles', {
-    p_user_ids: unique,
-  });
+
   const map: Record<string, string> = {};
-  for (const row of data ?? []) {
-    map[row.id] = formatProfileName(row);
+
+  const { data: rpcData, error: rpcError } = await supabase.rpc(
+    'get_challenge_participant_profiles',
+    { p_user_ids: unique },
+  );
+  if (!rpcError && rpcData?.length) {
+    for (const row of rpcData) map[row.id] = formatProfileName(row);
   }
+
+  const missing = unique.filter((id) => !map[id]);
+  if (missing.length > 0) {
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, display_name')
+      .in('id', missing);
+    if (profileError) {
+      console.warn('loadProfileNames failed:', profileError.message);
+    }
+    for (const row of profileData ?? []) {
+      map[row.id] = formatProfileName(row);
+    }
+  }
+
   return map;
 }
 
@@ -43,7 +68,7 @@ export default function CompanionScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('live');
-  const [requests, setRequests] = useState<CompanionRequest[]>([]);
+  const [requests, setRequests] = useState<Array<CompanionRequest & { challenges: Challenge }>>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [challengerNames, setChallengerNames] = useState<Record<string, string>>({});
   const [checkIns, setCheckIns] = useState<Record<string, DailyCheckIn>>({});
@@ -59,7 +84,13 @@ export default function CompanionScreen() {
       .select('id, challenge_id, challenges(*)')
       .eq('companion_user_id', user.id)
       .eq('status', 'pending');
-    const reqList = (reqData ?? []) as CompanionRequest[];
+    const reqList = (reqData ?? [])
+      .map((row) => {
+        const challenge = unwrapChallenge(row.challenges as Challenge | Challenge[] | null);
+        if (!challenge) return null;
+        return { ...row, challenges: challenge };
+      })
+      .filter(Boolean) as Array<CompanionRequest & { challenges: Challenge }>;
     setRequests(reqList);
 
     const { data: parts } = await supabase
@@ -69,8 +100,8 @@ export default function CompanionScreen() {
       .eq('status', 'active');
 
     const chList = (parts ?? [])
-      .map((p) => p.challenges as Challenge)
-      .filter(Boolean)
+      .map((p) => unwrapChallenge(p.challenges as Challenge | Challenge[] | null))
+      .filter((c): c is Challenge => c != null)
       .filter((c) =>
         filter === 'live' ? isActiveChallenge(c.status) : !isActiveChallenge(c.status),
       );
