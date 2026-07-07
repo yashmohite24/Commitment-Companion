@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { invokeChallengeAction } from '@/src/lib/challenge-actions';
+import { formatDisplayDateTime } from '@/src/lib/challenge-display';
 import { supabase } from '@/src/lib/supabase';
 import { useAuth } from '@/src/context/AuthContext';
 
@@ -111,7 +112,7 @@ export function ActivityFeed({ challengeId, isCompanion }: Props) {
       )}
       {items.map((item) => (
         <View key={`${item.type}-${item.id}`} style={styles.item}>
-          <Text style={styles.time}>{new Date(item.createdAt).toLocaleString()}</Text>
+          <Text style={styles.time}>{formatDisplayDateTime(item.createdAt)}</Text>
           <Text style={styles.msg}>{item.message}</Text>
           {item.type === 'proof' && isCompanion && item.proofId && (
             <View style={styles.actions}>

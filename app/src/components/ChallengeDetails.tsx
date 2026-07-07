@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { Challenge } from '@/src/lib/types';
+import { formatDisplayDate } from '@/src/lib/challenge-display';
 
 export function ChallengeDetails({ challenge }: { challenge: Challenge }) {
   return (
@@ -7,7 +8,7 @@ export function ChallengeDetails({ challenge }: { challenge: Challenge }) {
       <Text style={styles.title}>{challenge.name}</Text>
       <Text style={styles.row}>Wager: {challenge.wager}</Text>
       <Text style={styles.row}>
-        {challenge.start_date} → {challenge.end_date}
+        {formatDisplayDate(challenge.start_date)} → {formatDisplayDate(challenge.end_date)}
       </Text>
       <Text style={styles.row}>
         Daily deadline: {challenge.daily_deadline_time.slice(0, 5)}

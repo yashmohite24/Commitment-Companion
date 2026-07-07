@@ -29,10 +29,9 @@ interface CompanionRequest {
 async function loadProfileNames(userIds: string[]): Promise<Record<string, string>> {
   const unique = [...new Set(userIds.filter(Boolean))];
   if (!unique.length) return {};
-  const { data } = await supabase
-    .from('profiles')
-    .select('id, first_name, last_name, display_name')
-    .in('id', unique);
+  const { data } = await supabase.rpc('get_challenge_participant_profiles', {
+    p_user_ids: unique,
+  });
   const map: Record<string, string> = {};
   for (const row of data ?? []) {
     map[row.id] = formatProfileName(row);

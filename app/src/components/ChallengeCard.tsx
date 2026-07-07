@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { Challenge } from '@/src/lib/types';
+import { formatDisplayDate } from '@/src/lib/challenge-display';
 import { progressPercent } from '@/src/lib/card-status';
 import type { CardStatus } from '@/src/lib/card-status';
 
@@ -31,7 +32,9 @@ export function ChallengeCard({
       <Text style={styles.name} onPress={onPress}>
         {challenge.name}
       </Text>
-      <Text style={styles.meta}>{challenge.start_date} → {challenge.end_date}</Text>
+      <Text style={styles.meta}>
+        {formatDisplayDate(challenge.start_date)} → {formatDisplayDate(challenge.end_date)}
+      </Text>
       <View style={styles.barBg}>
         <View style={[styles.barFill, { width: `${pct}%` }]} />
       </View>

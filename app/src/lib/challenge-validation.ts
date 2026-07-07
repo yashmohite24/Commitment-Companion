@@ -55,7 +55,7 @@ export function validateChallengeForm(input: {
   }
 
   if (!isValidDateString(input.start_date)) {
-    errors.start_date = 'Enter start date as YYYY-MM-DD';
+    errors.start_date = 'Enter start date as DD-MM-YYYY';
   } else {
     const today = new Date().toISOString().slice(0, 10);
     if (input.start_date < today) {
@@ -64,7 +64,7 @@ export function validateChallengeForm(input: {
   }
 
   if (!isValidDateString(input.end_date)) {
-    errors.end_date = 'Enter end date as YYYY-MM-DD';
+    errors.end_date = 'Enter end date as DD-MM-YYYY';
   } else if (isValidDateString(input.start_date)) {
     const duration = challengeDurationDays(input.start_date, input.end_date);
     if (duration < MIN_CHALLENGE_DAYS) {

@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Challenge } from '@/src/lib/types';
-import { challengeDurationDays } from '@/src/lib/challenge-display';
+import { challengeDurationDays, formatDisplayDate } from '@/src/lib/challenge-display';
 
 interface Props {
   challengerName: string;
@@ -26,7 +26,7 @@ export function CompanionRequestCard({
       <Text style={styles.label}>Wager</Text>
       <Text style={styles.value}>{challenge.wager}</Text>
       <Text style={styles.meta}>
-        {challenge.start_date} → {challenge.end_date} · {duration} days
+        {formatDisplayDate(challenge.start_date)} → {formatDisplayDate(challenge.end_date)} · {duration} days
       </Text>
       <View style={styles.row}>
         <Pressable style={styles.accept} onPress={onAccept}>

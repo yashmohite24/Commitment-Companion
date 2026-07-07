@@ -137,9 +137,23 @@ export default function ChallengeOverviewScreen() {
     }
   };
 
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace(isCompanion ? '/(tabs)/companion' : '/(tabs)/challenges');
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title: challenge.name }} />
+      <Stack.Screen
+        options={{
+          title: challenge.name,
+          headerLeft: () => (
+            <Pressable onPress={goBack} style={styles.backBtn}>
+              <Text style={styles.backText}>← Back</Text>
+            </Pressable>
+          ),
+        }}
+      />
       <ChallengeDetails challenge={challenge} />
       <Text style={styles.status}>{cardStatus.label}</Text>
 
@@ -197,4 +211,6 @@ const styles = StyleSheet.create({
   actionDisabled: { opacity: 0.7 },
   leave: { backgroundColor: '#6b7280' },
   actionText: { color: '#fff', fontWeight: '600' },
+  backBtn: { paddingHorizontal: 8, paddingVertical: 4 },
+  backText: { color: '#2563eb', fontSize: 17 },
 });

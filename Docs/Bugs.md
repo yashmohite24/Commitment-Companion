@@ -1,19 +1,27 @@
 # Bug tracker — QA fixes (2026-07-07)
 
-| Bug | Status | Fix |
-|-----|--------|-----|
-| 1 — Challenges RLS | **Fixed** | Migration `20260707120008_fix_rls_recursion.sql` |
-| 4 — Companion RLS | **Fixed** | Same migration |
-| 2 — Create form validation | **Fixed** | `app/src/lib/challenge-validation.ts` + create screen |
-| 3 — Create button blocked | **Fixed** | Migration `20260707120011_seed_dev_profiles.sql` + inline errors |
-| 4 — Profile name input | **Fixed** | US 10 schema + read-only profile name |
-| 5 — Wager ratio 100% | **Fixed** | Migration `20260707120010_profile_stats_ratio_fix.sql` |
-| 6 — Companion request card | **Fixed** | `CompanionRequestCard` + layout order in companion tab |
-| 7 — Companion live cards | **Fixed** | `CompanionChallengeCard` + challenger profile fetch |
-| 8 — Check-in proof upload | **Fixed** | `upload.ts` ImagePicker + `UploadResult`; no false success |
-| 9 — Tabs hidden on overview | **Fixed** | Challenge overview moved under `(tabs)/challenge/[id]` |
+
+| Bug                         | Status    | Fix                                                              |
+| --------------------------- | --------- | ---------------------------------------------------------------- |
+| 1 — Challenges RLS          | **Fixed** | Migration `20260707120008_fix_rls_recursion.sql`                 |
+| 4 — Companion RLS           | **Fixed** | Same migration                                                   |
+| 2 — Create form validation  | **Fixed** | `app/src/lib/challenge-validation.ts` + create screen            |
+| 3 — Create button blocked   | **Fixed** | Migration `20260707120011_seed_dev_profiles.sql` + inline errors |
+| 4 — Profile name input      | **Fixed** | US 10 schema + read-only profile name                            |
+| 5 — Wager ratio 100%        | **Fixed** | Migration `20260707120010_profile_stats_ratio_fix.sql`           |
+| 6 — Companion request card  | **Fixed** | `CompanionRequestCard` + layout order in companion tab           |
+| 7 — Companion live cards    | **Fixed** | `CompanionChallengeCard` + challenger profile fetch              |
+| 8 — Check-in proof upload   | **Fixed** | `upload.ts` ImagePicker + `UploadResult`; no false success       |
+| 9 — Tabs hidden on overview | **Fixed** | Challenge overview moved under `(tabs)/challenge/[id]`           |
+| 10 — No back on overview    | **Fixed** | Custom header back button + fallback tab route                   |
+| 11 — Challenger name Unknown | **Fixed** | RPC `get_challenge_participant_profiles`                         |
+| 12 — Date format ISO        | **Fixed** | `formatDisplayDate()` across UI; DD-MM-YYYY on create form       |
+| 13 — Upload filesystem crash | **Fixed** | `expo-file-system/legacy` import in `upload.ts`                  |
+
 
 ---
+
+
 
 ## Bug 1 & 4 — RLS infinite recursion (`42P17`)
 
@@ -25,6 +33,8 @@
 
 ---
 
+
+
 ## Bug 2 — No create-challenge validation
 
 **RCA:** Validation existed only in Edge Function; client sent raw input.
@@ -34,6 +44,8 @@
 **Files:** `app/app/challenge/create.tsx`, `app/src/lib/challenge-validation.ts`, `supabase/functions/_shared/domain/challenge.ts`
 
 ---
+
+
 
 ## Bug 3 — Create button “does nothing”
 
@@ -47,6 +59,8 @@
 
 ---
 
+
+
 ## Bug 4 (Profile) — Editable display name
 
 **RCA:** Profile built for optional `display_name` input; US 10 requires first/last name at signup.
@@ -57,6 +71,8 @@
 
 ---
 
+
+
 ## Bug 5 — Wager settlement ratio
 
 **RCA:** `get_profile_stats()` returned `100` when `v_wagers_total = 0`.
@@ -65,10 +81,12 @@
 
 **Files:** `supabase/migrations/20260707120010_profile_stats_ratio_fix.sql`
 
-
 ---
 
-## Bug 6 - Accepting Companion Request: 
+
+
+## Bug 6 - Accepting Companion Request:
+
 where: Companion section, new companion request created
 Current behaviour: the companion request currently doesn't show all the details mentioned in user story 7, currently only showing Challenge name, Wager. Moreover the request is now being shown above the tags which is incorrect. Tags will always remain above all the requests
 Expected Behaviour - match the requirements mentioned in user story 7
@@ -81,7 +99,10 @@ Expected Behaviour - match the requirements mentioned in user story 7
 
 ---
 
+
+
 ## Bug 7 - Viewing challenge as a companion
+
 Where: Challenges section -> view live challenges
 Current Behaviour : when a live challenge is visible to a companion, it doesn't show all the details mentioned in user story 7
 Expected behaviour - match the requirements mentioned in user story 7 
@@ -94,7 +115,10 @@ Expected behaviour - match the requirements mentioned in user story 7
 
 ---
 
+
+
 ## Bug 8 - Submitting proof of work as a challenger
+
 Where - challenge overview - submit proof of work
 Current Behaviour: I click on Check in -> the media selection component opens up -> I select media and that is the end of the flow. The proof of work is not being submitted
 Expected Behaviour: when the user submits the proof of work, it should go to the companion for approval
@@ -106,6 +130,8 @@ Expected Behaviour: when the user submits the proof of work, it should go to the
 **Files:** `app/src/lib/upload.ts`, `app/app/(tabs)/challenge/[id].tsx`
 
 ---
+
+
 
 ## Bug 9 - Bottom tabs/ sections disappear on challenge overview
 
@@ -119,3 +145,89 @@ Expected Behaviour: when the companion enters challnege overview, the 3 tabs to 
 
 **Files:** `app/app/(tabs)/challenge/_layout.tsx`, `app/app/(tabs)/challenge/[id].tsx`, `app/app/(tabs)/_layout.tsx`, `app/app/_layout.tsx`
 
+---
+
+Bug 10 - Challenge Overview Screen - Back button missing
+
+Where: As a companion -> challenge overview screen
+
+Current behaviour: there is no button to go back to the previous screen
+
+Expected behaviour: on the challenge overview screen there should be a back button to go back to the previous screen
+
+**RCA:** Overview lives on a hidden tab stack with no prior stack entry when opened from Companion/Challenges lists, so React Navigation does not show a default back affordance.
+
+**Fix:** Custom `headerLeft` back button on overview; uses `router.back()` when possible, otherwise replaces to Companion or Challenges tab.
+
+**Files:** `app/app/(tabs)/challenge/[id].tsx`, `app/app/(tabs)/challenge/_layout.tsx`
+
+---
+
+Bug 11: Challenge card challenge name is unknown
+
+Where: as a challenge when I open the companion screen, the challenge card shows the name of the companion as 'unknown'
+
+Current behaviour: name of the challeneger on the challenge card shown as unknown
+
+Expected behaviour: actual name of the challenger should be shown
+
+**RCA:** Companion tab queried `profiles` directly, but RLS only allows `SELECT` on your own row (`profiles_select_own`). Challenger rows are blocked → empty map → `'Unknown'` fallback.
+
+**Fix:** `SECURITY DEFINER` RPC `get_challenge_participant_profiles(p_user_ids)` returns name fields only for users linked via shared challenge/companion request. Companion tab calls RPC instead of direct table select.
+
+**Files:** `supabase/migrations/20260707120012_participant_profiles_rpc.sql`, `app/app/(tabs)/companion.tsx`
+
+---
+
+ Bug 12: date format to be DD-MM-YYYY
+
+Where: everywhere
+
+Current behaviour: date format: YYYY-MM-DD
+
+Expected Behaviour: DD-MM-YYYY
+
+**RCA:** UI rendered raw ISO date strings from the database; create form labels and inputs used YYYY-MM-DD.
+
+**Fix:** Added `formatDisplayDate`, `parseDisplayDate`, and `formatDisplayDateTime` in `challenge-display.ts`. Cards, details, activity feed, and create form display DD-MM-YYYY; API/DB still use ISO internally.
+
+**Files:** `app/src/lib/challenge-display.ts`, `ChallengeCard`, `ChallengeDetails`, `CompanionRequestCard`, `ActivityFeed`, `app/app/challenge/create.tsx`
+
+---
+
+Bug 13: Uploading proof of work leads to failure
+
+Where: challenger uploads daily proof of work
+
+Current behaviour: when I upload the media as a companion I run into the following error:  
+ncaught Error  
+
+Method getInfoAsync imported from "expo-file-system" is deprecated.  
+You can migrate to the new filesystem API using "File" and "Directory" classes or import the legacy API from "expo-file-system/legacy".  
+API reference and examples are available in the filesystem docs:  
+[https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/](https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/)  
+
+src/lib/upload.ts (61:35)  
+
+59 | let totalSize = 0;  
+60 | for (const asset of assets) {  
+61 | const info = await FileSystem.getInfoAsync(asset...  
+62 |  
+63 | if ("info.exists && "size" in info) totalSize += i  
+64 | if (totalSize > MAX_MEDIA_BYTES) {  
+
+Call Stack (4)  
+
+pickAndUploadCheckIn  
+src/lib/upload.ts:61:35  
+
+handleCheckIn  
+app/(tabs)/challenge/[id].tsx:73:22  
+
+Expected behaviour: the cxhallenger should be able to upload the proof of work for check in without errors
+
+**RCA:** Expo SDK 57 deprecates `getInfoAsync` / `uploadAsync` on the main `expo-file-system` import and throws at runtime.
+
+**Fix:** Import from `expo-file-system/legacy` for size checks and binary upload.
+
+**Files:** `app/src/lib/upload.ts`

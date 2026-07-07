@@ -10,6 +10,10 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  formatDisplayDate,
+  parseDisplayDate,
+} from '@/src/lib/challenge-display';
+import {
   validateChallengeForm,
   type ChallengeFieldErrors,
 } from '@/src/lib/challenge-validation';
@@ -38,8 +42,8 @@ export default function CreateChallengeScreen() {
     supabase.from('challenges').select('*').eq('id', editId).single().then(({ data }) => {
       if (!data) return;
       setName(data.name);
-      setStartDate(data.start_date);
-      setEndDate(data.end_date);
+      setStartDate(formatDisplayDate(data.start_date));
+      setEndDate(formatDisplayDate(data.end_date));
       setWager(data.wager);
       setLives(String(data.lives_total));
     });
@@ -64,10 +68,20 @@ export default function CreateChallengeScreen() {
   };
 
   const submit = async () => {
+    const startIso = parseDisplayDate(startDate);
+    const endIso = parseDisplayDate(endDate);
+    const parseErrors: ChallengeFieldErrors = {};
+    if (!startIso) parseErrors.start_date = 'Enter start date as DD-MM-YYYY';
+    if (!endIso) parseErrors.end_date = 'Enter end date as DD-MM-YYYY';
+    if (Object.keys(parseErrors).length > 0) {
+      setFieldErrors(parseErrors);
+      return;
+    }
+
     const validation = validateChallengeForm({
       name,
-      start_date: startDate,
-      end_date: endDate,
+      start_date: startIso,
+      end_date: endIso,
       wager,
       lives_total: parseInt(lives, 10) || 0,
       companionCount: companionIds.length,
@@ -79,8 +93,8 @@ export default function CreateChallengeScreen() {
     try {
       const payload = {
         name: name.trim(),
-        start_date: startDate,
-        end_date: endDate,
+        start_date: startIso,
+        end_date: endIso,
         daily_deadline_time: '23:59:00',
         timezone,
         wager: wager.trim(),
@@ -154,13 +168,13 @@ export default function CreateChallengeScreen() {
         error={fieldErrors.name}
       />
       <Field
-        label="Start date (YYYY-MM-DD)"
+        label="Start date (DD-MM-YYYY)"
         value={startDate}
         onChangeText={setStartDate}
         error={fieldErrors.start_date}
       />
       <Field
-        label="End date (YYYY-MM-DD)"
+        label="End date (DD-MM-YYYY)"
         value={endDate}
         onChangeText={setEndDate}
         error={fieldErrors.end_date}

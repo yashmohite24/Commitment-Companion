@@ -59,6 +59,7 @@ POST `/functions/v1/submit-feedback` with JWT body `{ header, message }`.
 
 - `get_profile_stats()` — profile tab statistics
 - `search_profiles_by_phone(p_digits)` — companion picker
+- `get_challenge_participant_profiles(p_user_ids[])` — challenger/companion display names
 - `check_phone_registered(p_phone)` — signup duplicate check
 - `get_login_email_by_phone(p_phone)` — login V1 (phone → email)
 

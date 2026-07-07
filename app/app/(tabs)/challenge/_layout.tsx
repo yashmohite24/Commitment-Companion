@@ -5,6 +5,7 @@ export default function ChallengeTabLayout() {
     <Stack
       screenOptions={{
         headerShown: true,
+        headerBackVisible: true,
       }}
     />
   );
