@@ -197,11 +197,13 @@ export default function ChallengeOverviewScreen() {
         </Pressable>
       )}
 
-      <ActivityFeed
-        challengeId={challenge.id}
-        isCompanion={isCompanion}
-        timezone={challenge.timezone}
-      />
+      <View style={styles.feedSection}>
+        <ActivityFeed
+          challengeId={challenge.id}
+          isCompanion={isCompanion}
+          timezone={challenge.timezone}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -222,4 +224,5 @@ const styles = StyleSheet.create({
   actionText: { color: '#fff', fontWeight: '600' },
   backBtn: { paddingHorizontal: 8, paddingVertical: 4 },
   backText: { color: '#2563eb', fontSize: 17 },
+  feedSection: { minHeight: 120 },
 });

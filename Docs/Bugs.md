@@ -1,23 +1,24 @@
 # Bug tracker — QA fixes (2026-07-07)
 
 
-| Bug                         | Status    | Fix                                                              |
-| --------------------------- | --------- | ---------------------------------------------------------------- |
-| 1 — Challenges RLS          | **Fixed** | Migration `20260707120008_fix_rls_recursion.sql`                 |
-| 4 — Companion RLS           | **Fixed** | Same migration                                                   |
-| 2 — Create form validation  | **Fixed** | `app/src/lib/challenge-validation.ts` + create screen            |
-| 3 — Create button blocked   | **Fixed** | Migration `20260707120011_seed_dev_profiles.sql` + inline errors |
-| 4 — Profile name input      | **Fixed** | US 10 schema + read-only profile name                            |
-| 5 — Wager ratio 100%        | **Fixed** | Migration `20260707120010_profile_stats_ratio_fix.sql`           |
-| 6 — Companion request card  | **Fixed** | `CompanionRequestCard` + layout order in companion tab           |
-| 7 — Companion live cards    | **Fixed** | `CompanionChallengeCard` + challenger profile fetch              |
-| 8 — Check-in proof upload   | **Fixed** | `upload.ts` ImagePicker + `UploadResult`; no false success       |
-| 9 — Tabs hidden on overview | **Fixed** | Challenge overview moved under `(tabs)/challenge/[id]`           |
-| 10 — No back on overview    | **Fixed** | Custom header back button + fallback tab route                   |
-| 11 — Challenger name Unknown | **Fixed** | RPC + RLS `profiles_select_challenge_linked`                     |
-| 12 — Date format ISO        | **Fixed** | `formatDisplayDate()` across UI; DD-MM-YYYY on create form       |
-| 13 — Upload filesystem crash | **Fixed** | `fetch` blob read + PUT upload (no expo-file-system) |
-| 14 — UTC vs challenge TZ    | **Fixed** | `challenge-time.ts`; all client day logic uses `challenge.timezone` |
+| Bug                          | Status    | Fix                                                                 |
+| ---------------------------- | --------- | ------------------------------------------------------------------- |
+| 1 — Challenges RLS           | **Fixed** | Migration `20260707120008_fix_rls_recursion.sql`                    |
+| 4 — Companion RLS            | **Fixed** | Same migration                                                      |
+| 2 — Create form validation   | **Fixed** | `app/src/lib/challenge-validation.ts` + create screen               |
+| 3 — Create button blocked    | **Fixed** | Migration `20260707120011_seed_dev_profiles.sql` + inline errors    |
+| 4 — Profile name input       | **Fixed** | US 10 schema + read-only profile name                               |
+| 5 — Wager ratio 100%         | **Fixed** | Migration `20260707120010_profile_stats_ratio_fix.sql`              |
+| 6 — Companion request card   | **Fixed** | `CompanionRequestCard` + layout order in companion tab              |
+| 7 — Companion live cards     | **Fixed** | `CompanionChallengeCard` + challenger profile fetch                 |
+| 8 — Check-in proof upload    | **Fixed** | `upload.ts` ImagePicker + `UploadResult`; no false success          |
+| 9 — Tabs hidden on overview  | **Fixed** | Challenge overview moved under `(tabs)/challenge/[id]`              |
+| 10 — No back on overview     | **Fixed** | Custom header back button + fallback tab route                      |
+| 11 — Challenger name Unknown | **Fixed** | RPC + RLS `profiles_select_challenge_linked`                        |
+| 12 — Date format ISO         | **Fixed** | `formatDisplayDate()` across UI; DD-MM-YYYY on create form          |
+| 13 — Upload filesystem crash | **Fixed** | `fetch` blob read + PUT upload (no expo-file-system)                |
+| 14 — UTC vs challenge TZ     | **Fixed** | `challenge-time.ts`; all client day logic uses `challenge.timezone` |
+| 15 — Companion proof view    | **Fixed** | Signed URLs + media in `ActivityFeed`; verify UX (US 9)             |
 
 
 ---
@@ -235,6 +236,8 @@ Expected behaviour: the cxhallenger should be able to upload the proof of work f
 
 ---
 
+
+
 ## Bug 14 — Check-in status stuck on "Missed" after new day
 
 Where: Challenger overview / challenge cards after a missed day when local calendar has rolled over
@@ -248,3 +251,24 @@ Expected behaviour: At midnight in the challenge timezone, today's row (`pending
 **Fix:** Added `todayInTimezone()` and helpers in `app/src/lib/challenge-time.ts`. Challenges, companion, and overview screens load today's check-in per challenge timezone; upload sends the same date. Activity feed timestamps use challenge timezone. Create-form validation uses device timezone (stored as `challenge.timezone`).
 
 **Files:** `app/src/lib/challenge-time.ts`, `app/app/(tabs)/challenges.tsx`, `app/app/(tabs)/companion.tsx`, `app/app/(tabs)/challenge/[id].tsx`, `app/src/lib/challenge-validation.ts`, `app/src/components/ActivityFeed.tsx`, [Decisions.md B9](./Decisions.md)
+
+
+
+---
+
+## Bug 15 — Companion cannot view proof when verifying (US 9)
+
+Where: Companion Screen → Challenge Overview
+
+Current Behaviour: the companion wants to verify the proof of work but it is not visible in the application, the companion can't take action in this scenario
+
+Expected Behaviour: the companion should be able to view the proof of work while validating it as check-in
+
+**RCA:** `ActivityFeed` loaded `storage_paths` but never fetched signed download URLs or rendered media — only text "Proof submitted (N file(s))". Nested `ScrollView` inside challenge overview could collapse the feed. Accept/Reject showed on all proof rows regardless of check-in status or prior vote.
+
+**Fix:** New `proof-media.ts` resolves signed URLs via Supabase Storage (RLS allows participants). Activity feed renders image previews (or open-file link), highlights pending-validation proofs, shows response count (N/M companions), hides Accept/Reject after this companion voted, and uses a plain `View` (no nested scroll). Overview wraps feed in `feedSection` with min height.
+
+**Files:** `app/src/lib/proof-media.ts`, `app/src/components/ActivityFeed.tsx`, `app/app/(tabs)/challenge/[id].tsx`
+
+
+
