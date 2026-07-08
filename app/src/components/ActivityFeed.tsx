@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { invokeChallengeAction } from '@/src/lib/challenge-actions';
 import { formatDisplayDate, formatDisplayDateTime } from '@/src/lib/challenge-display';
+import { ProofImageViewer } from '@/src/components/ProofImageViewer';
 import { signedProofUrlsByProofId, shouldRenderAsImage } from '@/src/lib/proof-media';
 import { supabase } from '@/src/lib/supabase';
 import type { DailyCheckInStatus } from '@/src/lib/types';
@@ -44,6 +45,7 @@ export function ActivityFeed({ challengeId, isCompanion, timezone }: Props) {
   const { user } = useAuth();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fullscreenUri, setFullscreenUri] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -217,7 +219,7 @@ export function ActivityFeed({ challengeId, isCompanion, timezone }: Props) {
                   const path = item.storagePaths?.[idx] ?? '';
                   if (shouldRenderAsImage(path)) {
                     return (
-                      <Pressable key={`${item.id}-${idx}`} onPress={() => Linking.openURL(url)}>
+                      <Pressable key={`${item.id}-${idx}`} onPress={() => setFullscreenUri(url)}>
                         <Image
                           source={{ uri: url }}
                           style={styles.mediaImage}
@@ -263,6 +265,7 @@ export function ActivityFeed({ challengeId, isCompanion, timezone }: Props) {
           )}
         </View>
       ))}
+      <ProofImageViewer uri={fullscreenUri} onClose={() => setFullscreenUri(null)} />
     </View>
   );
 }

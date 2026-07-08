@@ -19,6 +19,7 @@
 | 13 — Upload filesystem crash | **Fixed** | `fetch` blob read + PUT upload (no expo-file-system)                |
 | 14 — UTC vs challenge TZ     | **Fixed** | `challenge-time.ts`; all client day logic uses `challenge.timezone` |
 | 15 — Companion proof view    | **Fixed** | Signed URLs + media in `ActivityFeed`; verify UX (US 9)             |
+| 16 — Proof opens externally  | **Fixed** | In-app fullscreen modal via `ProofImageViewer`                        |
 
 
 ---
@@ -252,9 +253,9 @@ Expected behaviour: At midnight in the challenge timezone, today's row (`pending
 
 **Files:** `app/src/lib/challenge-time.ts`, `app/app/(tabs)/challenges.tsx`, `app/app/(tabs)/companion.tsx`, `app/app/(tabs)/challenge/[id].tsx`, `app/src/lib/challenge-validation.ts`, `app/src/components/ActivityFeed.tsx`, [Decisions.md B9](./Decisions.md)
 
-
-
 ---
+
+
 
 ## Bug 15 — Companion cannot view proof when verifying (US 9)
 
@@ -268,7 +269,22 @@ Expected Behaviour: the companion should be able to view the proof of work while
 
 **Fix:** New `proof-media.ts` resolves signed URLs via Supabase Storage (RLS allows participants). Activity feed renders image previews (or open-file link), highlights pending-validation proofs, shows response count (N/M companions), hides Accept/Reject after this companion voted, and uses a plain `View` (no nested scroll). Overview wraps feed in `feedSection` with min height. **Follow-up:** Storage paths have no file extension (UUID keys); client `createSignedUrl` failed silently. Added `get_proof_download_urls` Edge Function action (service role) and always render V1 uploads as images.
 
-**Files:** `app/src/lib/proof-media.ts`, `app/src/components/ActivityFeed.tsx`, `app/app/(tabs)/challenge/[id].tsx`, `supabase/functions/challenge-actions/index.ts`
+**Files:** `app/src/lib/proof-media.ts`, `app/src/components/ActivityFeed.tsx`, `app/app/(tabs)/challenge/[id].tsx`, `supabase/functions/challenge-actions/index.ts`  
+  
 
 
+---
 
+## Bug 16 — Proof image opens externally
+
+Where: Companion → Challenge overview → Activity feed → proof thumbnail
+
+Current behaviour: Tapping a proof thumbnail called `Linking.openURL`, opening the signed URL in an external browser.
+
+Expected behaviour: Tap opens the image in-app fullscreen; companion closes the viewer and returns to Accept/Reject on the overview (US 9).
+
+**RCA:** Bug 15 added image previews with `Linking.openURL` as a quick fallback for viewing signed URLs. No in-app modal existed.
+
+**Fix:** New `ProofImageViewer` component (React Native `Modal`, dark backdrop, `resizeMode="contain"`, Close button). `ActivityFeed` sets `fullscreenUri` on image tap instead of opening a link. Non-image files still use "Open file" + external link.
+
+**Files:** `app/src/components/ProofImageViewer.tsx`, `app/src/components/ActivityFeed.tsx`
