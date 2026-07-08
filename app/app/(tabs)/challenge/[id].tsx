@@ -202,6 +202,7 @@ export default function ChallengeOverviewScreen() {
           challengeId={challenge.id}
           isCompanion={isCompanion}
           timezone={challenge.timezone}
+          onProofDecision={load}
         />
       </View>
     </ScrollView>

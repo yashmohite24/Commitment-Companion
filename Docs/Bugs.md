@@ -19,7 +19,8 @@
 | 13 — Upload filesystem crash | **Fixed** | `fetch` blob read + PUT upload (no expo-file-system)                |
 | 14 — UTC vs challenge TZ     | **Fixed** | `challenge-time.ts`; all client day logic uses `challenge.timezone` |
 | 15 — Companion proof view    | **Fixed** | Signed URLs + media in `ActivityFeed`; verify UX (US 9)             |
-| 16 — Proof opens externally  | **Fixed** | In-app fullscreen modal via `ProofImageViewer`                        |
+| 16 — Proof opens externally  | **Fixed** | In-app fullscreen modal via `ProofImageViewer`                      |
+| 17 — Slow approve/reject UX  | **Fixed** | Optimistic UI + cached URLs + silent background refresh             |
 
 
 ---
@@ -270,10 +271,10 @@ Expected Behaviour: the companion should be able to view the proof of work while
 **Fix:** New `proof-media.ts` resolves signed URLs via Supabase Storage (RLS allows participants). Activity feed renders image previews (or open-file link), highlights pending-validation proofs, shows response count (N/M companions), hides Accept/Reject after this companion voted, and uses a plain `View` (no nested scroll). Overview wraps feed in `feedSection` with min height. **Follow-up:** Storage paths have no file extension (UUID keys); client `createSignedUrl` failed silently. Added `get_proof_download_urls` Edge Function action (service role) and always render V1 uploads as images.
 
 **Files:** `app/src/lib/proof-media.ts`, `app/src/components/ActivityFeed.tsx`, `app/app/(tabs)/challenge/[id].tsx`, `supabase/functions/challenge-actions/index.ts`  
-  
-
 
 ---
+
+
 
 ## Bug 16 — Proof image opens externally
 
@@ -288,3 +289,19 @@ Expected behaviour: Tap opens the image in-app fullscreen; companion closes the 
 **Fix:** New `ProofImageViewer` component (React Native `Modal`, dark backdrop, `resizeMode="contain"`, Close button). `ActivityFeed` sets `fullscreenUri` on image tap instead of opening a link. Non-image files still use "Open file" + external link.
 
 **Files:** `app/src/components/ProofImageViewer.tsx`, `app/src/components/ActivityFeed.tsx`
+
+---
+
+## Bug 17 — Decision slow to register
+
+Where: Companion → Challenge overview → Accept/Reject proof
+
+Current behaviour: After tapping Accept or Reject, the UI took ~5–10 seconds to reflect the decision.
+
+Expected behaviour: Decision should feel instant (<1s).
+
+**RCA:** After `approve_proof`, `ActivityFeed.load()` re-fetched the entire feed sequentially (6+ Supabase round trips), then called `get_proof_download_urls` for every proof even though signed URLs had not changed. `setLoading(true)` replaced the feed with a spinner during reload.
+
+**Fix:** Optimistic UI updates vote state immediately on tap. Signed URL cache (`useRef`) only fetches URLs for proofs missing from cache. Initial load parallelizes independent queries. Post-approve refresh runs silently (no full-screen spinner, no URL re-fetch). Overview header refreshes via `onProofDecision` callback when proof resolves.
+
+**Files:** `app/src/components/ActivityFeed.tsx`, `app/app/(tabs)/challenge/[id].tsx`
