@@ -42,6 +42,7 @@ POST `/functions/v1/challenge-actions` with `Authorization: Bearer <user_jwt>`:
 | `prepare_check_in_upload` | `challenge_id`, `check_in_date` |
 | `submit_check_in` | `challenge_id`, `check_in_date`, `storage_paths[]`, `media_size_bytes` |
 | `approve_proof` | `proof_id`, `decision` (`accepted` \| `rejected`) |
+| `get_proof_download_urls` | `proof_ids[]` → signed read URLs for proof media |
 | `leave_challenge` | `challenge_id` |
 | `prepare_wager_upload` | `challenge_id` |
 | `submit_wager_settlement` | `challenge_id`, `storage_paths[]`, `media_size_bytes` |

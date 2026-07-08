@@ -266,9 +266,9 @@ Expected Behaviour: the companion should be able to view the proof of work while
 
 **RCA:** `ActivityFeed` loaded `storage_paths` but never fetched signed download URLs or rendered media — only text "Proof submitted (N file(s))". Nested `ScrollView` inside challenge overview could collapse the feed. Accept/Reject showed on all proof rows regardless of check-in status or prior vote.
 
-**Fix:** New `proof-media.ts` resolves signed URLs via Supabase Storage (RLS allows participants). Activity feed renders image previews (or open-file link), highlights pending-validation proofs, shows response count (N/M companions), hides Accept/Reject after this companion voted, and uses a plain `View` (no nested scroll). Overview wraps feed in `feedSection` with min height.
+**Fix:** New `proof-media.ts` resolves signed URLs via Supabase Storage (RLS allows participants). Activity feed renders image previews (or open-file link), highlights pending-validation proofs, shows response count (N/M companions), hides Accept/Reject after this companion voted, and uses a plain `View` (no nested scroll). Overview wraps feed in `feedSection` with min height. **Follow-up:** Storage paths have no file extension (UUID keys); client `createSignedUrl` failed silently. Added `get_proof_download_urls` Edge Function action (service role) and always render V1 uploads as images.
 
-**Files:** `app/src/lib/proof-media.ts`, `app/src/components/ActivityFeed.tsx`, `app/app/(tabs)/challenge/[id].tsx`
+**Files:** `app/src/lib/proof-media.ts`, `app/src/components/ActivityFeed.tsx`, `app/app/(tabs)/challenge/[id].tsx`, `supabase/functions/challenge-actions/index.ts`
 
 
 

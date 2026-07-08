@@ -60,6 +60,8 @@ Deno.serve(async (req) => {
         return await handleSubmitCheckIn(supabase, userId, body.payload ?? {});
       case "approve_proof":
         return await handleApproveProof(supabase, userId, body.payload ?? {});
+      case "get_proof_download_urls":
+        return await handleGetProofDownloadUrls(supabase, userId, body.payload ?? {});
       case "leave_challenge":
         return await handleLeaveChallenge(supabase, userId, body.payload ?? {});
       case "prepare_wager_upload":
@@ -464,6 +466,61 @@ async function getActiveCompanionIds(
     .eq("challenge_id", challengeId)
     .eq("status", "active");
   return (data ?? []).map((r) => r.companion_user_id);
+}
+
+async function userCanAccessChallenge(
+  supabase: ReturnType<typeof createServiceClient>,
+  userId: string,
+  challengeId: string,
+): Promise<boolean> {
+  const { data: ch } = await supabase
+    .from("challenges")
+    .select("challenger_id")
+    .eq("id", challengeId)
+    .maybeSingle();
+  if (!ch) return false;
+  if (ch.challenger_id === userId) return true;
+  const companions = await getActiveCompanionIds(supabase, challengeId);
+  return companions.includes(userId);
+}
+
+async function handleGetProofDownloadUrls(
+  supabase: ReturnType<typeof createServiceClient>,
+  userId: string,
+  payload: Record<string, unknown>,
+) {
+  const proofIds = (payload.proof_ids as string[]) ?? [];
+  if (proofIds.length === 0) return errorResponse("proof_ids required");
+
+  const { data: proofs } = await supabase
+    .from("proof_of_work")
+    .select("id, storage_paths, daily_check_ins(challenge_id)")
+    .in("id", proofIds)
+    .is("media_deleted_at", null);
+
+  const urls: Record<string, { signed_url: string }[]> = {};
+
+  for (const proof of proofs ?? []) {
+    const checkIn = proof.daily_check_ins as { challenge_id: string } | null;
+    const challengeId = checkIn?.challenge_id;
+    if (!challengeId) continue;
+    if (!(await userCanAccessChallenge(supabase, userId, challengeId))) continue;
+
+    const signed: { signed_url: string }[] = [];
+    for (const path of proof.storage_paths ?? []) {
+      const { data, error } = await supabase.storage
+        .from(PROOF_BUCKET)
+        .createSignedUrl(path, 3600);
+      if (error || !data?.signedUrl) {
+        console.error("createSignedUrl failed", path, error?.message);
+        continue;
+      }
+      signed.push({ signed_url: data.signedUrl });
+    }
+    urls[proof.id] = signed;
+  }
+
+  return jsonResponse({ urls });
 }
 
 async function handleApproveProof(

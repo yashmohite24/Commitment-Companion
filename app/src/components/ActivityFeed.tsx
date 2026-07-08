@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { invokeChallengeAction } from '@/src/lib/challenge-actions';
 import { formatDisplayDate, formatDisplayDateTime } from '@/src/lib/challenge-display';
-import { isLikelyImagePath, PROOF_BUCKET, signedStorageUrls } from '@/src/lib/proof-media';
+import { signedProofUrlsByProofId, shouldRenderAsImage } from '@/src/lib/proof-media';
 import { supabase } from '@/src/lib/supabase';
 import type { DailyCheckInStatus } from '@/src/lib/types';
 import { useAuth } from '@/src/context/AuthContext';
@@ -119,7 +119,6 @@ export function ActivityFeed({ challengeId, isCompanion, timezone }: Props) {
             isCompanion &&
             checkInStatus === 'pending_validation' &&
             !userDecision;
-          const mediaUrls = await signedStorageUrls(PROOF_BUCKET, p.storage_paths ?? []);
 
           return {
             id: p.id,
@@ -127,7 +126,7 @@ export function ActivityFeed({ challengeId, isCompanion, timezone }: Props) {
             message: `Proof submitted (${p.storage_paths.length} file(s))`,
             createdAt: p.submitted_at,
             proofId: p.id,
-            mediaUrls,
+            mediaUrls: [] as string[],
             storagePaths: p.storage_paths,
             checkInDate: checkIn?.check_in_date,
             checkInStatus,
@@ -139,6 +138,12 @@ export function ActivityFeed({ challengeId, isCompanion, timezone }: Props) {
           };
         }),
       );
+
+      const urlMap = await signedProofUrlsByProofId(proofItems.map((p) => p.id));
+      proofItems = proofItems.map((p) => ({
+        ...p,
+        mediaUrls: urlMap[p.id] ?? [],
+      }));
     }
 
     const otherItems: FeedItem[] = [
@@ -205,29 +210,36 @@ export function ActivityFeed({ challengeId, isCompanion, timezone }: Props) {
               Responses: {item.approvalCount ?? 0}/{item.totalCompanions}
             </Text>
           )}
-          {item.type === 'proof' && item.mediaUrls && item.mediaUrls.length > 0 && (
+          {item.type === 'proof' && (item.storagePaths?.length ?? 0) > 0 && (
             <View style={styles.mediaRow}>
-              {item.mediaUrls.map((url, idx) => {
-                const path = item.storagePaths?.[idx] ?? '';
-                if (isLikelyImagePath(path)) {
+              {item.mediaUrls && item.mediaUrls.length > 0 ? (
+                item.mediaUrls.map((url, idx) => {
+                  const path = item.storagePaths?.[idx] ?? '';
+                  if (shouldRenderAsImage(path)) {
+                    return (
+                      <Pressable key={`${item.id}-${idx}`} onPress={() => Linking.openURL(url)}>
+                        <Image
+                          source={{ uri: url }}
+                          style={styles.mediaImage}
+                          resizeMode="cover"
+                        />
+                      </Pressable>
+                    );
+                  }
                   return (
-                    <Image
+                    <Pressable
                       key={`${item.id}-${idx}`}
-                      source={{ uri: url }}
-                      style={styles.mediaImage}
-                      resizeMode="cover"
-                    />
+                      style={styles.mediaLink}
+                      onPress={() => Linking.openURL(url)}>
+                      <Text style={styles.mediaLinkText}>Open file {idx + 1}</Text>
+                    </Pressable>
                   );
-                }
-                return (
-                  <Pressable
-                    key={`${item.id}-${idx}`}
-                    style={styles.mediaLink}
-                    onPress={() => Linking.openURL(url)}>
-                    <Text style={styles.mediaLinkText}>Open file {idx + 1}</Text>
-                  </Pressable>
-                );
-              })}
+                })
+              ) : (
+                <Text style={styles.previewError}>
+                  Preview unavailable. Reload the screen or redeploy challenge-actions.
+                </Text>
+              )}
             </View>
           )}
           {item.type === 'proof' && item.userDecision && (
@@ -277,11 +289,12 @@ const styles = StyleSheet.create({
   meta: { fontSize: 12, color: '#6b7280', marginTop: 4 },
   mediaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   mediaImage: {
-    width: 120,
-    height: 120,
+    width: 280,
+    height: 200,
     borderRadius: 8,
     backgroundColor: '#e5e7eb',
   },
+  previewError: { fontSize: 12, color: '#b45309', marginTop: 8 },
   mediaLink: {
     padding: 10,
     backgroundColor: '#eff6ff',
