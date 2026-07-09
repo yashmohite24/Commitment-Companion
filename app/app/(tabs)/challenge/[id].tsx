@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityFeed } from '@/src/components/ActivityFeed';
+import { PendingProofVerification } from '@/src/components/PendingProofVerification';
 import { ChallengeDetails } from '@/src/components/ChallengeDetails';
 import { deriveCardStatus } from '@/src/lib/card-status';
 import { todayInTimezone } from '@/src/lib/challenge-time';
@@ -25,6 +26,7 @@ export default function ChallengeOverviewScreen() {
   const router = useRouter();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [todayCheckIn, setTodayCheckIn] = useState<DailyCheckIn | null>(null);
+  const [pendingCheckIn, setPendingCheckIn] = useState<DailyCheckIn | null>(null);
   const [isCompanion, setIsCompanion] = useState(false);
   const [isChallenger, setIsChallenger] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -56,6 +58,16 @@ export default function ChallengeOverviewScreen() {
       .eq('check_in_date', localToday)
       .maybeSingle();
     setTodayCheckIn((ci as DailyCheckIn) ?? null);
+
+    const { data: pending } = await supabase
+      .from('daily_check_ins')
+      .select('*')
+      .eq('challenge_id', id)
+      .eq('status', 'pending_validation')
+      .order('check_in_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setPendingCheckIn((pending as DailyCheckIn) ?? null);
   }, [id, user]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -68,7 +80,7 @@ export default function ChallengeOverviewScreen() {
     challenge,
     todayCheckIn,
     role: isChallenger ? 'challenger' : 'companion',
-    hasPendingProof: todayCheckIn?.status === 'pending_validation',
+    hasPendingProof: !!pendingCheckIn || todayCheckIn?.status === 'pending_validation',
   });
 
   const handleCheckIn = async () => {
@@ -197,12 +209,23 @@ export default function ChallengeOverviewScreen() {
         </Pressable>
       )}
 
+      {isCompanion && pendingCheckIn && (
+        <PendingProofVerification
+          challengeId={challenge.id}
+          dailyCheckInId={pendingCheckIn.id}
+          checkInDate={pendingCheckIn.check_in_date}
+          timezone={challenge.timezone}
+          onResolved={load}
+        />
+      )}
+
       <View style={styles.feedSection}>
         <ActivityFeed
           challengeId={challenge.id}
           isCompanion={isCompanion}
           timezone={challenge.timezone}
           onProofDecision={load}
+          hidePendingActions={isCompanion && !!pendingCheckIn}
         />
       </View>
     </ScrollView>

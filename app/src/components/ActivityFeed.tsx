@@ -2,16 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   Image,
-  Linking,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { ProofImageViewer } from '@/src/components/ProofImageViewer';
 import { invokeChallengeAction } from '@/src/lib/challenge-actions';
 import { formatDisplayDate, formatDisplayDateTime } from '@/src/lib/challenge-display';
-import { ProofImageViewer } from '@/src/components/ProofImageViewer';
 import { signedProofUrlsByProofId, shouldRenderAsImage } from '@/src/lib/proof-media';
 import { supabase } from '@/src/lib/supabase';
 import type { DailyCheckInStatus } from '@/src/lib/types';
@@ -51,20 +51,33 @@ interface Props {
   isCompanion: boolean;
   timezone?: string;
   onProofDecision?: () => void;
+  /** Hide inline verify actions when shown in PendingProofVerification card */
+  hidePendingActions?: boolean;
 }
 
-export function ActivityFeed({ challengeId, isCompanion, timezone, onProofDecision }: Props) {
+const mediaWidth = Math.min(Dimensions.get('window').width - 72, 280);
+
+export function ActivityFeed({
+  challengeId,
+  isCompanion,
+  timezone,
+  onProofDecision,
+  hidePendingActions = false,
+}: Props) {
   const { user } = useAuth();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [urlError, setUrlError] = useState<string | null>(null);
   const [fullscreenUri, setFullscreenUri] = useState<string | null>(null);
   const [submittingProofId, setSubmittingProofId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const mediaUrlCache = useRef<Record<string, string[]>>({});
 
   const load = useCallback(
     async (options?: LoadOptions) => {
       if (!user) return;
       if (!options?.silent) setLoading(true);
+      setUrlError(null);
 
       const [
         { data: logs },
@@ -130,6 +143,8 @@ export function ActivityFeed({ challengeId, isCompanion, timezone, onProofDecisi
           }
         }
 
+        const storagePathsByProofId: Record<string, string[]> = {};
+
         proofItems = (proofs ?? []).map((p) => {
           const checkIn = checkInById.get(p.daily_check_in_id);
           const checkInStatus = checkIn?.status;
@@ -140,8 +155,13 @@ export function ActivityFeed({ challengeId, isCompanion, timezone, onProofDecisi
             userVote?.decision === 'accepted' || userVote?.decision === 'rejected'
               ? userVote.decision
               : null;
-          const canVerify =
-            isCompanion && checkInStatus === 'pending_validation' && !userDecision;
+          const showActions =
+            isCompanion &&
+            checkInStatus === 'pending_validation' &&
+            !userDecision &&
+            !hidePendingActions;
+
+          storagePathsByProofId[p.id] = p.storage_paths ?? [];
 
           return {
             id: p.id,
@@ -156,7 +176,7 @@ export function ActivityFeed({ challengeId, isCompanion, timezone, onProofDecisi
             approvalCount,
             totalCompanions,
             userDecision,
-            canVerify,
+            canVerify: showActions,
             isPendingHighlight: checkInStatus === 'pending_validation',
           };
         });
@@ -166,8 +186,18 @@ export function ActivityFeed({ challengeId, isCompanion, timezone, onProofDecisi
           .map((p) => p.id);
 
         if (missingProofIds.length > 0) {
-          const fetched = await signedProofUrlsByProofId(missingProofIds);
-          mediaUrlCache.current = { ...mediaUrlCache.current, ...fetched };
+          const { urlsByProofId, error } = await signedProofUrlsByProofId(
+            missingProofIds,
+            Object.fromEntries(
+              missingProofIds.map((id) => [id, storagePathsByProofId[id] ?? []]),
+            ),
+          );
+
+          if (error && Object.keys(urlsByProofId).length === 0) {
+            setUrlError(error);
+          }
+
+          mediaUrlCache.current = { ...mediaUrlCache.current, ...urlsByProofId };
         }
 
         proofItems = proofItems.map((p) => ({
@@ -199,9 +229,12 @@ export function ActivityFeed({ challengeId, isCompanion, timezone, onProofDecisi
       });
 
       setItems(merged);
+      if (merged.some((i) => i.isPendingHighlight)) {
+        setExpanded(true);
+      }
       if (!options?.silent) setLoading(false);
     },
-    [challengeId, isCompanion, user],
+    [challengeId, hidePendingActions, isCompanion, user],
   );
 
   useEffect(() => {
@@ -246,109 +279,161 @@ export function ActivityFeed({ challengeId, isCompanion, timezone, onProofDecisi
     }
   };
 
-  if (loading) return <ActivityIndicator style={styles.loader} />;
+  if (loading) {
+    return (
+      <View style={styles.feed}>
+        <View style={styles.header}>
+          <Text style={styles.feedTitle}>Activity</Text>
+        </View>
+        <ActivityIndicator style={styles.loader} />
+      </View>
+    );
+  }
+
+  const countLabel =
+    items.length === 0
+      ? 'No entries'
+      : items.length === 1
+        ? '1 entry'
+        : `${items.length} entries`;
 
   return (
     <View style={styles.feed}>
-      <Text style={styles.feedTitle}>Activity</Text>
-      {items.length === 0 && <Text style={styles.empty}>No activity yet.</Text>}
-      {items.map((item) => (
-        <View
-          key={`${item.type}-${item.id}`}
-          style={[styles.item, item.isPendingHighlight && styles.itemPending]}>
-          <Text style={styles.time}>{formatDisplayDateTime(item.createdAt, timezone)}</Text>
-          <Text style={styles.msg}>{item.message}</Text>
-          {item.checkInDate && (
-            <Text style={styles.meta}>
-              Check-in day: {formatDisplayDate(item.checkInDate)}
-              {item.checkInStatus === 'pending_validation' ? ' · Pending verification' : ''}
-            </Text>
-          )}
-          {item.type === 'proof' && item.totalCompanions != null && item.totalCompanions > 0 && (
-            <Text style={styles.meta}>
-              Responses: {item.approvalCount ?? 0}/{item.totalCompanions}
-            </Text>
-          )}
-          {item.type === 'proof' && (item.storagePaths?.length ?? 0) > 0 && (
-            <View style={styles.mediaRow}>
-              {item.mediaUrls && item.mediaUrls.length > 0 ? (
-                item.mediaUrls.map((url, idx) => {
-                  const path = item.storagePaths?.[idx] ?? '';
-                  if (shouldRenderAsImage(path)) {
-                    return (
-                      <Pressable key={`${item.id}-${idx}`} onPress={() => setFullscreenUri(url)}>
-                        <Image
-                          source={{ uri: url }}
-                          style={styles.mediaImage}
-                          resizeMode="cover"
-                        />
-                      </Pressable>
-                    );
-                  }
-                  return (
-                    <Pressable
-                      key={`${item.id}-${idx}`}
-                      style={styles.mediaLink}
-                      onPress={() => Linking.openURL(url)}>
-                      <Text style={styles.mediaLinkText}>Open file {idx + 1}</Text>
-                    </Pressable>
-                  );
-                })
-              ) : (
-                <Text style={styles.previewError}>
-                  Preview unavailable. Reload the screen or redeploy challenge-actions.
+      <Pressable
+        style={styles.header}
+        onPress={() => setExpanded((v) => !v)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={`Activity, ${countLabel}. ${expanded ? 'Collapse' : 'Expand'}`}>
+        <Text style={styles.feedTitle}>Activity</Text>
+        <View style={styles.headerRight}>
+          <Text style={styles.countLabel}>{countLabel}</Text>
+          <Text style={styles.chevron}>{expanded ? '▲' : '▼'}</Text>
+        </View>
+      </Pressable>
+
+      {expanded && (
+        <View style={styles.feedBody}>
+          {urlError ? <Text style={styles.urlError}>{urlError}</Text> : null}
+          {items.length === 0 && <Text style={styles.empty}>No activity yet.</Text>}
+          {items.map((item) => (
+            <View
+              key={`${item.type}-${item.id}`}
+              style={[styles.item, item.isPendingHighlight && styles.itemPending]}>
+              <Text style={styles.time}>{formatDisplayDateTime(item.createdAt, timezone)}</Text>
+              <Text style={styles.msg}>{item.message}</Text>
+              {item.checkInDate && (
+                <Text style={styles.meta}>
+                  Check-in day: {formatDisplayDate(item.checkInDate)}
+                  {item.checkInStatus === 'pending_validation' ? ' · Pending verification' : ''}
                 </Text>
               )}
+              {item.type === 'proof' && item.totalCompanions != null && item.totalCompanions > 0 && (
+                <Text style={styles.meta}>
+                  Responses: {item.approvalCount ?? 0}/{item.totalCompanions}
+                </Text>
+              )}
+              {item.type === 'proof' && (item.storagePaths?.length ?? 0) > 0 && (
+                <View style={styles.mediaRow}>
+                  {item.mediaUrls && item.mediaUrls.length > 0 ? (
+                    item.mediaUrls.map((url, idx) => {
+                      const path = item.storagePaths?.[idx] ?? '';
+                      if (shouldRenderAsImage(path)) {
+                        return (
+                          <Pressable key={`${item.id}-${idx}`} onPress={() => setFullscreenUri(url)}>
+                            <Image
+                              source={{ uri: url }}
+                              style={styles.mediaImage}
+                              resizeMode="cover"
+                            />
+                          </Pressable>
+                        );
+                      }
+                      return null;
+                    })
+                  ) : (
+                    <View>
+                      <Text style={styles.previewError}>
+                        Preview unavailable.{urlError ? ` ${urlError}` : ''}
+                      </Text>
+                      <Pressable style={styles.retryBtn} onPress={() => load()}>
+                        <Text style={styles.retryText}>Retry preview</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
+              )}
+              {item.type === 'proof' && item.userDecision && (
+                <Text style={styles.voted}>
+                  You {item.userDecision === 'accepted' ? 'accepted' : 'rejected'} this proof
+                </Text>
+              )}
+              {item.type === 'proof' && item.canVerify && item.proofId && (
+                <View style={styles.actions}>
+                  <Pressable
+                    style={[
+                      styles.btn,
+                      styles.accept,
+                      submittingProofId === item.proofId && styles.btnDisabled,
+                    ]}
+                    disabled={submittingProofId === item.proofId}
+                    onPress={() => approve(item.proofId!, 'accepted')}>
+                    {submittingProofId === item.proofId ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.btnText}>Accept</Text>
+                    )}
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.btn,
+                      styles.reject,
+                      submittingProofId === item.proofId && styles.btnDisabled,
+                    ]}
+                    disabled={submittingProofId === item.proofId}
+                    onPress={() => approve(item.proofId!, 'rejected')}>
+                    {submittingProofId === item.proofId ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.btnText}>Reject</Text>
+                    )}
+                  </Pressable>
+                </View>
+              )}
             </View>
-          )}
-          {item.type === 'proof' && item.userDecision && (
-            <Text style={styles.voted}>
-              You {item.userDecision === 'accepted' ? 'accepted' : 'rejected'} this proof
-            </Text>
-          )}
-          {item.type === 'proof' && item.canVerify && item.proofId && (
-            <View style={styles.actions}>
-              <Pressable
-                style={[
-                  styles.btn,
-                  styles.accept,
-                  submittingProofId === item.proofId && styles.btnDisabled,
-                ]}
-                disabled={submittingProofId === item.proofId}
-                onPress={() => approve(item.proofId!, 'accepted')}>
-                {submittingProofId === item.proofId ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.btnText}>Accept</Text>
-                )}
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.btn,
-                  styles.reject,
-                  submittingProofId === item.proofId && styles.btnDisabled,
-                ]}
-                disabled={submittingProofId === item.proofId}
-                onPress={() => approve(item.proofId!, 'rejected')}>
-                {submittingProofId === item.proofId ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.btnText}>Reject</Text>
-                )}
-              </Pressable>
-            </View>
-          )}
+          ))}
         </View>
-      ))}
+      )}
       <ProofImageViewer uri={fullscreenUri} onClose={() => setFullscreenUri(null)} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  feed: { padding: 16, paddingTop: 8 },
-  feedTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12, color: '#111827' },
-  loader: { margin: 24 },
+  feed: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    overflow: 'hidden',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: '#f9fafb',
+  },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  feedTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  countLabel: { fontSize: 13, color: '#6b7280' },
+  chevron: { fontSize: 12, color: '#6b7280' },
+  feedBody: { padding: 12, paddingTop: 4 },
+  urlError: { fontSize: 12, color: '#b45309', marginBottom: 8 },
+  loader: { margin: 16 },
   empty: { color: '#6b7280', textAlign: 'center', marginTop: 8 },
   item: {
     backgroundColor: '#fff',
@@ -367,18 +452,21 @@ const styles = StyleSheet.create({
   meta: { fontSize: 12, color: '#6b7280', marginTop: 4 },
   mediaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   mediaImage: {
-    width: 280,
-    height: 200,
+    width: mediaWidth,
+    height: Math.round(mediaWidth * 0.72),
     borderRadius: 8,
     backgroundColor: '#e5e7eb',
   },
   previewError: { fontSize: 12, color: '#b45309', marginTop: 8 },
-  mediaLink: {
-    padding: 10,
-    backgroundColor: '#eff6ff',
-    borderRadius: 8,
+  retryBtn: {
+    marginTop: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#fef3c7',
+    borderRadius: 6,
   },
-  mediaLinkText: { color: '#2563eb', fontWeight: '600', fontSize: 13 },
+  retryText: { fontSize: 12, color: '#92400e', fontWeight: '600' },
   voted: { fontSize: 13, color: '#374151', marginTop: 8, fontStyle: 'italic' },
   actions: { flexDirection: 'row', gap: 8, marginTop: 10 },
   btn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6, flex: 1, alignItems: 'center' },

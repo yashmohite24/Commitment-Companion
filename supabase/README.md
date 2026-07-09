@@ -11,7 +11,8 @@ supabase/
 │   ├── _shared/          # Domain logic (testable) + Supabase helpers
 │   ├── challenge-actions/  # All domain mutations (JWT auth)
 │   ├── scheduled-jobs/     # pg_cron target (CRON_SECRET header)
-│   └── submit-feedback/    # Google Sheets
+│   ├── submit-feedback/    # Google Sheets
+│   └── waitlist-signup/    # Landing page email capture (public POST)
 └── config.toml
 ```
 
@@ -24,7 +25,19 @@ supabase db push
 supabase functions deploy challenge-actions
 supabase functions deploy scheduled-jobs
 supabase functions deploy submit-feedback
+supabase functions deploy waitlist-signup
 ```
+
+## waitlist_signups (landing page)
+
+Table `public.waitlist_signups` — columns: `id`, `email`, `created_at`.
+
+View rows in **Supabase Dashboard → Table Editor → waitlist_signups**.
+
+POST `/functions/v1/waitlist-signup` (no auth) body `{ "email": "you@example.com" }`:
+
+- `200` `{ "ok": true }` — added
+- `409` `{ "error": "This email is already on the waitlist." }` — duplicate
 
 Set secrets: `CRON_SECRET`, `GOOGLE_SHEET_ID`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, `APP_DOWNLOAD_URL`.
 
@@ -59,7 +72,8 @@ POST `/functions/v1/submit-feedback` with JWT body `{ header, message }`.
 ## RPC
 
 - `get_profile_stats()` — profile tab statistics
-- `search_profiles_by_phone(p_digits)` — companion picker
+- `search_profiles_for_companion(p_query)` — companion picker (name/phone; empty query lists users)
+- `search_profiles_by_phone(p_digits)` — legacy phone-only search
 - `get_challenge_participant_profiles(p_user_ids[])` — challenger/companion display names (RPC)
 - `user_can_view_profile(p_profile_id)` — RLS helper for linked profile name reads
 - `check_phone_registered(p_phone)` — signup duplicate check

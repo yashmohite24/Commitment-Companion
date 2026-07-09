@@ -51,6 +51,15 @@ npx expo start
 
 **Dev companion phones:** challenger `+919000000001`, companion `+919000000002`.
 
+## Android emulator testing
+
+See [Docs/ANDROID_QA.md](Docs/ANDROID_QA.md). Quick start:
+
+```bash
+cd app
+npm run android:emulator   # with emulator running in Android Studio
+```
+
 ## Tests
 
 ```bash

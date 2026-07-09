@@ -32,6 +32,7 @@ Write-Host "==> deploy functions"
 & npx --yes supabase@latest functions deploy challenge-actions
 & npx --yes supabase@latest functions deploy scheduled-jobs
 & npx --yes supabase@latest functions deploy submit-feedback
+& npx --yes supabase@latest functions deploy waitlist-signup
 
 Write-Host "==> api keys"
 & npx --yes supabase@latest projects api-keys --project-ref $ref -o json | Out-File (Join-Path $PSScriptRoot "..\supabase\.api-keys.json") -Encoding utf8

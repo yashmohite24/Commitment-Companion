@@ -501,7 +501,11 @@ async function handleGetProofDownloadUrls(
   const urls: Record<string, { signed_url: string }[]> = {};
 
   for (const proof of proofs ?? []) {
-    const checkIn = proof.daily_check_ins as { challenge_id: string } | null;
+    const embedded = proof.daily_check_ins as
+      | { challenge_id: string }
+      | { challenge_id: string }[]
+      | null;
+    const checkIn = Array.isArray(embedded) ? embedded[0] ?? null : embedded;
     const challengeId = checkIn?.challenge_id;
     if (!challengeId) continue;
     if (!(await userCanAccessChallenge(supabase, userId, challengeId))) continue;
@@ -510,7 +514,7 @@ async function handleGetProofDownloadUrls(
     for (const path of proof.storage_paths ?? []) {
       const { data, error } = await supabase.storage
         .from(PROOF_BUCKET)
-        .createSignedUrl(path, 3600);
+        .createSignedUrl(path, 3600, { download: "proof.jpg" });
       if (error || !data?.signedUrl) {
         console.error("createSignedUrl failed", path, error?.message);
         continue;

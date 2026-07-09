@@ -21,6 +21,7 @@
 | 15 — Companion proof view    | **Fixed** | Signed URLs + media in `ActivityFeed`; verify UX (US 9)             |
 | 16 — Proof opens externally  | **Fixed** | In-app fullscreen modal via `ProofImageViewer`                      |
 | 17 — Slow approve/reject UX  | **Fixed** | Optimistic UI + cached URLs + silent background refresh             |
+| 18 — Companion add silent    | **Fixed** | `CompanionPicker` list + inline feedback (US 2)                     |
 
 
 ---
@@ -268,13 +269,25 @@ Expected Behaviour: the companion should be able to view the proof of work while
 
 **RCA:** `ActivityFeed` loaded `storage_paths` but never fetched signed download URLs or rendered media — only text "Proof submitted (N file(s))". Nested `ScrollView` inside challenge overview could collapse the feed. Accept/Reject showed on all proof rows regardless of check-in status or prior vote.
 
-**Fix:** New `proof-media.ts` resolves signed URLs via Supabase Storage (RLS allows participants). Activity feed renders image previews (or open-file link), highlights pending-validation proofs, shows response count (N/M companions), hides Accept/Reject after this companion voted, and uses a plain `View` (no nested scroll). Overview wraps feed in `feedSection` with min height. **Follow-up:** Storage paths have no file extension (UUID keys); client `createSignedUrl` failed silently. Added `get_proof_download_urls` Edge Function action (service role) and always render V1 uploads as images.
+**Fix:** New `proof-media.ts` resolves signed URLs via Supabase Storage (RLS allows participants). Activity feed renders image previews (or open-file link), highlights pending-validation proofs, shows response count (N/M companions), hides Accept/Reject after this companion voted, and uses a plain `View` (no nested scroll). Overview wraps feed in `feedSection` with min height. **Follow-up:** Storage paths have no file extension (UUID keys); client `createSignedUrl` failed silently. Added `get_proof_download_urls` Edge Function action (service role) and always render V1 uploads as images. **Follow-up 2 (Android):** Proof buried in scrollable feed; URL fetch errors swallowed. Added `PendingProofVerification` card at top of overview for companions, client Storage URL fallback, inline errors + retry, `ProofImageViewer` fullscreen, responsive image sizing.
 
-**Files:** `app/src/lib/proof-media.ts`, `app/src/components/ActivityFeed.tsx`, `app/app/(tabs)/challenge/[id].tsx`, `supabase/functions/challenge-actions/index.ts`  
+**Files:** `app/src/lib/proof-media.ts`, `app/src/components/ActivityFeed.tsx`, `app/src/components/PendingProofVerification.tsx`, `app/src/components/ProofImageViewer.tsx`, `app/app/(tabs)/challenge/[id].tsx`, `supabase/functions/challenge-actions/index.ts`
 
 ---
 
+## Bug 18 — Companion Add button silent / phone-only picker
 
+Where: Create challenge → Companions section
+
+Current behaviour: Entering a phone number and tapping Add gave no visible feedback. Added companions showed only as truncated UUIDs. Phone-only input did not match PRD (US 2: show available app users).
+
+Expected behaviour: See registered users, search by name or phone, tap to add, see named chips, clear inline success/error messages.
+
+**RCA:** `Alert.alert` for errors/success is unreliable on web. Success state was a cryptic UUID line. V1 used `search_profiles_by_phone` dev shortcut instead of a user list per PRD.
+
+**Fix:** New `CompanionPicker` component with searchable user list, named chips with remove, inline messages. RPC `search_profiles_for_companion` lists/filters invitable profiles. Create screen wired to picker; SMS invite kept for non-users on draft edit. Legacy phone RPC fallback until migration is deployed.
+
+**Files:** `app/src/components/CompanionPicker.tsx`, `app/app/challenge/create.tsx`, `supabase/migrations/20260708120014_search_profiles_for_companion.sql`
 
 ## Bug 16 — Proof image opens externally
 

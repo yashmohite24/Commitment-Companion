@@ -11,6 +11,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   formatDisplayDate,
+  formatProfileName,
   parseDisplayDate,
 } from '@/src/lib/challenge-display';
 import {
@@ -18,54 +19,59 @@ import {
   type ChallengeFieldErrors,
 } from '@/src/lib/challenge-validation';
 import { invokeChallengeAction } from '@/src/lib/challenge-actions';
+import { CompanionPicker, type SelectedCompanion } from '@/src/components/CompanionPicker';
 import { supabase } from '@/src/lib/supabase';
-import { useAuth } from '@/src/context/AuthContext';
 
 export default function CreateChallengeScreen() {
   const { id: editId } = useLocalSearchParams<{ id?: string }>();
-  const { user } = useAuth();
   const router = useRouter();
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [wager, setWager] = useState('');
   const [lives, setLives] = useState('0');
-  const [companionPhone, setCompanionPhone] = useState('');
-  const [companionIds, setCompanionIds] = useState<string[]>([]);
+  const [companions, setCompanions] = useState<SelectedCompanion[]>([]);
   const [fieldErrors, setFieldErrors] = useState<ChallengeFieldErrors>({});
   const [loading, setLoading] = useState(false);
+  const [invitePhone, setInvitePhone] = useState('');
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   useEffect(() => {
     if (!editId) return;
-    supabase.from('challenges').select('*').eq('id', editId).single().then(({ data }) => {
+    (async () => {
+      const { data } = await supabase.from('challenges').select('*').eq('id', editId).single();
       if (!data) return;
       setName(data.name);
       setStartDate(formatDisplayDate(data.start_date));
       setEndDate(formatDisplayDate(data.end_date));
       setWager(data.wager);
       setLives(String(data.lives_total));
-    });
-  }, [editId]);
 
-  const searchCompanion = async () => {
-    const digits = companionPhone.replace(/\D/g, '');
-    if (digits.length < 10) {
-      Alert.alert('Invalid phone', 'Enter at least 10 digits to search.');
-      return;
-    }
-    const { data, error } = await supabase.rpc('search_profiles_by_phone', {
-      p_digits: digits,
-    });
-    if (error || !data?.length) {
-      Alert.alert('Not found', 'No user with that phone. Use SMS invite for non-users.');
-      return;
-    }
-    setCompanionIds((prev) => [...new Set([...prev, data[0].id])]);
-    setCompanionPhone('');
-    setFieldErrors((e) => ({ ...e, companions: undefined }));
-  };
+      const { data: requests } = await supabase
+        .from('companion_requests')
+        .select('companion_user_id, profiles(id, display_name, first_name, last_name, phone)')
+        .eq('challenge_id', editId)
+        .in('status', ['pending', 'accepted']);
+
+      setCompanions(
+        (requests ?? []).map((r) => {
+          const profile = r.profiles as {
+            id: string;
+            display_name: string | null;
+            first_name: string | null;
+            last_name: string | null;
+            phone: string | null;
+          } | null;
+          return {
+            id: r.companion_user_id,
+            name: formatProfileName(profile),
+            phone: profile?.phone,
+          };
+        }),
+      );
+    })();
+  }, [editId]);
 
   const submit = async () => {
     const startIso = parseDisplayDate(startDate);
@@ -85,7 +91,7 @@ export default function CreateChallengeScreen() {
         end_date: endIso,
         wager,
         lives_total: parseInt(lives, 10) || 0,
-        companionCount: companionIds.length,
+        companionCount: companions.length,
       },
       timezone,
     );
@@ -102,7 +108,7 @@ export default function CreateChallengeScreen() {
         timezone,
         wager: wager.trim(),
         lives_total: parseInt(lives, 10) || 0,
-        companion_user_ids: companionIds,
+        companion_user_ids: companions.map((c) => c.id),
       };
       if (editId) {
         await invokeChallengeAction('update_challenge', {
@@ -138,7 +144,7 @@ export default function CreateChallengeScreen() {
       }
       await invokeChallengeAction('invite_companion_sms', {
         challenge_id: challengeId,
-        phone: companionPhone,
+        phone: invitePhone,
       });
       Alert.alert('Sent', 'SMS invite sent.');
     } catch (e) {
@@ -193,30 +199,30 @@ export default function CreateChallengeScreen() {
       <Text style={styles.hint}>Timezone: {timezone}</Text>
 
       <Text style={styles.section}>Companions</Text>
-      <View style={styles.row}>
-        <TextInput
-          style={[styles.input, { flex: 1 }, fieldErrors.companions ? styles.inputError : null]}
-          placeholder="Phone number (dev: 9000000002)"
-          value={companionPhone}
-          onChangeText={setCompanionPhone}
-          keyboardType="phone-pad"
-        />
-        <Pressable style={styles.smallBtn} onPress={searchCompanion}>
-          <Text style={styles.smallBtnText}>Add</Text>
-        </Pressable>
-      </View>
-      {fieldErrors.companions ? (
-        <Text style={styles.errorText}>{fieldErrors.companions}</Text>
-      ) : null}
-      {companionIds.map((cid) => (
-        <Text key={cid} style={styles.companionId}>
-          Companion: {cid.slice(0, 8)}…
-        </Text>
-      ))}
+      <CompanionPicker
+        selected={companions}
+        onChange={(next) => {
+          setCompanions(next);
+          if (next.length > 0) {
+            setFieldErrors((e) => ({ ...e, companions: undefined }));
+          }
+        }}
+        error={fieldErrors.companions}
+      />
       {editId && (
-        <Pressable style={styles.secondary} onPress={inviteSms}>
-          <Text style={styles.secondaryText}>SMS invite (non-user)</Text>
-        </Pressable>
+        <>
+          <Text style={styles.label}>SMS invite (non-user)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Phone number"
+            value={invitePhone}
+            onChangeText={setInvitePhone}
+            keyboardType="phone-pad"
+          />
+          <Pressable style={styles.secondary} onPress={inviteSms}>
+            <Text style={styles.secondaryText}>Send SMS invite</Text>
+          </Pressable>
+        </>
       )}
 
       <Pressable style={styles.primary} onPress={submit} disabled={loading}>
@@ -276,15 +282,6 @@ const styles = StyleSheet.create({
   errorText: { color: '#b91c1c', fontSize: 12, marginBottom: 8 },
   hint: { fontSize: 12, color: '#9ca3af', marginBottom: 12 },
   section: { fontSize: 16, fontWeight: '600', marginTop: 8, marginBottom: 8 },
-  row: { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 8 },
-  smallBtn: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  smallBtnText: { color: '#fff', fontWeight: '600' },
-  companionId: { fontSize: 12, color: '#374151', marginBottom: 4 },
   primary: {
     backgroundColor: '#2563eb',
     padding: 14,
