@@ -1,19 +1,14 @@
 import { useCallback, useState } from 'react';
-import {
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { Link, useFocusEffect, useRouter } from 'expo-router';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { ChallengeCard } from '@/src/components/ChallengeCard';
 import { deriveCardStatus, isActiveChallenge } from '@/src/lib/card-status';
 import { indexTodayCheckIns, todayDatesByChallenge } from '@/src/lib/challenge-time';
 import { supabase } from '@/src/lib/supabase';
 import type { Challenge, DailyCheckIn } from '@/src/lib/types';
 import { useAuth } from '@/src/context/AuthContext';
+import { colors, spacing } from '@/src/theme';
+import { AppText, Button, EmptyState, Screen, ScreenHeader, SegmentedControl } from '@/src/ui';
 
 type Filter = 'active' | 'past';
 
@@ -83,32 +78,54 @@ export default function ChallengesScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.filters}>
-        {(['active', 'past'] as Filter[]).map((f) => (
-          <Pressable
-            key={f}
-            style={[styles.chip, filter === f && styles.chipActive]}
-            onPress={() => setFilter(f)}>
-            <Text style={filter === f ? styles.chipTextActive : styles.chipText}>
-              {f === 'active' ? 'Active' : 'Past'}
-            </Text>
-          </Pressable>
-        ))}
-        <Link href="/challenge/create" asChild>
-          <Pressable style={styles.createBtn}>
-            <Text style={styles.createText}>+ New</Text>
-          </Pressable>
-        </Link>
+    <Screen style={styles.screen}>
+      <ScreenHeader>
+        <AppText variant="displayMedium" style={styles.headline}>
+          Your goals
+        </AppText>
+        <AppText variant="body" color={colors.textSecondary}>
+          Big goals. Small steps. Show up daily.
+        </AppText>
+      </ScreenHeader>
+
+      <View style={styles.toolbar}>
+        <SegmentedControl
+          options={[
+            { key: 'active', label: 'Active' },
+            { key: 'past', label: 'Your journey' },
+          ]}
+          value={filter}
+          onChange={(k) => setFilter(k as Filter)}
+        />
+        <Button
+          title="+ New"
+          variant="ghost"
+          onPress={() => router.push('/challenge/create')}
+          style={styles.newBtn}
+        />
       </View>
 
       <FlatList
         data={challenges}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <Text style={styles.empty}>No {filter} challenges yet.</Text>
+          filter === 'active' ? (
+            <EmptyState
+              title="Your next big goal starts here"
+              message="Pick something that matters. Show up daily — invite people who believe in you."
+              actionLabel="Start a goal"
+              onAction={() => router.push('/challenge/create')}
+            />
+          ) : (
+            <EmptyState
+              title="No past goals yet"
+              message="When you complete a goal, it will live here."
+            />
+          )
         }
         renderItem={({ item }) => {
           const totalDays = Math.max(
@@ -129,6 +146,7 @@ export default function ChallengesScreen() {
               cardStatus={cardStatus}
               doneCount={doneCounts[item.id] ?? 0}
               totalDays={totalDays}
+              currentDay={(doneCounts[item.id] ?? 0) + 1}
               onPress={() => router.push(`/challenge/${item.id}`)}
               onCta={() => {
                 if (cardStatus.ctaAction === 'edit_draft') {
@@ -141,30 +159,20 @@ export default function ChallengesScreen() {
           );
         }}
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f3f4f6' },
-  filters: {
+  screen: { paddingHorizontal: 0 },
+  headline: { marginBottom: spacing[1] },
+  toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    gap: 8,
-    backgroundColor: '#fff',
+    paddingHorizontal: spacing[4],
+    gap: spacing[2],
+    marginBottom: spacing[3],
   },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#e5e7eb',
-  },
-  chipActive: { backgroundColor: '#2563eb' },
-  chipText: { color: '#374151' },
-  chipTextActive: { color: '#fff', fontWeight: '600' },
-  createBtn: { marginLeft: 'auto', paddingHorizontal: 12, paddingVertical: 6 },
-  createText: { color: '#2563eb', fontWeight: '700' },
-  list: { padding: 12 },
-  empty: { textAlign: 'center', color: '#6b7280', marginTop: 40 },
+  newBtn: { minHeight: 40, paddingHorizontal: spacing[3] },
+  list: { paddingHorizontal: spacing[4], paddingBottom: spacing[8] },
 });

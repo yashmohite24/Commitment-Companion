@@ -5,7 +5,6 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
@@ -18,6 +17,8 @@ import {
 } from '@/src/lib/auth-forms';
 import { devAccounts, devSignIn, devSkipAuth } from '@/src/lib/dev-auth';
 import { supabase } from '@/src/lib/supabase';
+import { colors, spacing } from '@/src/theme';
+import { AppText, Button } from '@/src/ui';
 
 export default function LoginScreen() {
   const { session } = useAuth();
@@ -71,8 +72,12 @@ export default function LoginScreen() {
   if (devSkipAuth) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Dev login</Text>
-        <Text style={styles.sub}>Use welcome screen shortcuts or log in below</Text>
+        <AppText variant="displayMedium" style={styles.title}>
+          Dev login
+        </AppText>
+        <AppText variant="body" color={colors.textSecondary} style={styles.sub}>
+          Use welcome screen shortcuts or log in below
+        </AppText>
         <TouchableOpacityRow
           label={`Sign in as ${devAccounts.challenger.label}`}
           sub={devAccounts.challenger.email}
@@ -88,7 +93,9 @@ export default function LoginScreen() {
         />
         <Link href="/welcome" asChild>
           <Pressable style={styles.linkBtn}>
-            <Text style={styles.linkText}>← Welcome</Text>
+            <AppText variant="bodyMedium" color={colors.primary}>
+              ← Welcome
+            </AppText>
           </Pressable>
         </Link>
       </View>
@@ -99,43 +106,68 @@ export default function LoginScreen() {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Text style={styles.title}>Log In</Text>
-      <Text style={styles.sub}>Mobile number and password (V1)</Text>
+      <AppText variant="displayMedium" style={styles.title}>
+        Welcome back
+      </AppText>
+      <AppText variant="body" color={colors.textSecondary} style={styles.sub}>
+        Log in with your mobile number
+      </AppText>
       <Link href="/welcome" asChild>
-        <Text style={styles.back}>← Back</Text>
+        <AppText variant="bodyMedium" color={colors.primary} style={styles.back}>
+          ← Back
+        </AppText>
       </Link>
 
-      <Text style={styles.label}>Country code</Text>
+      <AppText variant="caption" color={colors.textMuted} style={styles.label}>
+        Country code
+      </AppText>
       <TextInput
         style={styles.input}
         value={phoneCountryCode}
         onChangeText={setPhoneCountryCode}
         keyboardType="phone-pad"
+        placeholderTextColor={colors.textMuted}
       />
-      <Text style={styles.label}>Mobile number</Text>
+      <AppText variant="caption" color={colors.textMuted} style={styles.label}>
+        Mobile number
+      </AppText>
       <TextInput
         style={styles.input}
         placeholder="10-digit number"
+        placeholderTextColor={colors.textMuted}
         keyboardType="phone-pad"
         value={phone}
         onChangeText={setPhone}
       />
-      <Text style={styles.label}>Password</Text>
+      <AppText variant="caption" color={colors.textMuted} style={styles.label}>
+        Password
+      </AppText>
       <TextInput
         style={styles.input}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
+        placeholderTextColor={colors.textMuted}
       />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <AppText variant="caption" color={colors.gentleAlert} style={styles.error}>
+          {error}
+        </AppText>
+      ) : null}
 
-      <Pressable style={styles.btn} onPress={login} disabled={loading}>
-        <Text style={styles.btnText}>{loading ? 'Signing in…' : 'Log in'}</Text>
-      </Pressable>
+      <Button
+        title={loading ? 'Signing in…' : 'Log in'}
+        onPress={login}
+        disabled={loading}
+        fullWidth
+        style={styles.btn}
+      />
 
       <Link href="/signup" asChild>
         <Pressable>
-          <Text style={styles.linkText}>Create an account</Text>
+          <AppText variant="bodyMedium" color={colors.primary} style={styles.linkText}>
+            Create an account
+          </AppText>
         </Pressable>
       </Link>
     </KeyboardAvoidingView>
@@ -156,41 +188,37 @@ function TouchableOpacityRow({
   secondary?: boolean;
 }) {
   return (
-    <Pressable
-      style={[styles.btn, secondary && styles.btnSecondary]}
+    <Button
+      title={label}
       onPress={onPress}
-      disabled={loading}>
-      <Text style={styles.btnText}>{label}</Text>
-      <Text style={styles.btnSub}>{sub}</Text>
-    </Pressable>
+      disabled={loading}
+      variant={secondary ? 'secondary' : 'primary'}
+      fullWidth
+      style={styles.devRow}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#fff' },
-  title: { fontSize: 28, fontWeight: '700', textAlign: 'center' },
-  sub: { textAlign: 'center', color: '#6b7280', marginVertical: 12 },
-  back: { color: '#2563eb', marginBottom: 16 },
-  label: { fontSize: 14, color: '#6b7280', marginBottom: 4 },
+  container: { flex: 1, justifyContent: 'center', padding: spacing[6], backgroundColor: colors.background },
+  title: { textAlign: 'center' },
+  sub: { textAlign: 'center', marginVertical: spacing[3] },
+  back: { marginBottom: spacing[4] },
+  label: { marginBottom: spacing[1] },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: spacing[3],
+    marginBottom: spacing[3],
     fontSize: 16,
+    fontFamily: 'Inter_400Regular',
+    backgroundColor: colors.surface,
+    color: colors.textPrimary,
   },
-  error: { color: '#b91c1c', marginBottom: 12 },
-  btn: {
-    backgroundColor: '#2563eb',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  btnSecondary: { backgroundColor: '#15803d' },
-  btnText: { color: '#fff', fontWeight: '600', fontSize: 16 },
-  btnSub: { color: '#dbeafe', fontSize: 12, marginTop: 4 },
-  linkBtn: { marginTop: 8, alignItems: 'center' },
-  linkText: { color: '#2563eb', textAlign: 'center', marginTop: 8 },
+  error: { marginBottom: spacing[3] },
+  btn: { marginBottom: spacing[3] },
+  devRow: { marginBottom: spacing[3] },
+  linkBtn: { marginTop: spacing[2], alignItems: 'center' },
+  linkText: { textAlign: 'center', marginTop: spacing[2] },
 });

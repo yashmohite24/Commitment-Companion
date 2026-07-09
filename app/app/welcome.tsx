@@ -1,7 +1,9 @@
 import { Link, Redirect } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useAuth } from '@/src/context/AuthContext';
 import { devAccounts, devSignIn, devSkipAuth } from '@/src/lib/dev-auth';
+import { colors, spacing } from '@/src/theme';
+import { AppText, Button } from '@/src/ui';
 
 export default function WelcomeScreen() {
   const { session, loading } = useAuth();
@@ -15,30 +17,43 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Commitment App</Text>
-      <Text style={styles.sub}>Daily challenges with companion accountability</Text>
+      <AppText style={styles.mark}>🌱</AppText>
+      <AppText variant="displayMedium" style={styles.title}>
+        HeroArc
+      </AppText>
+      <AppText variant="heading" color={colors.textSecondary} style={styles.headline}>
+        Show up every day.{'\n'}Everything else follows.
+      </AppText>
+      <AppText variant="body" color={colors.textMuted} style={styles.sub}>
+        Big goals. Small steps. Every day.
+      </AppText>
 
       <Link href="/signup" asChild>
-        <Pressable style={styles.primary}>
-          <Text style={styles.primaryText}>Sign Up</Text>
-        </Pressable>
+        <Button title="Get started" fullWidth style={styles.primary} />
       </Link>
 
       <Link href="/login" asChild>
-        <Pressable style={styles.secondary}>
-          <Text style={styles.secondaryText}>Log In</Text>
-        </Pressable>
+        <Button title="I already have an account" variant="ghost" fullWidth />
       </Link>
 
       {devSkipAuth && (
         <View style={styles.devBlock}>
-          <Text style={styles.devLabel}>Dev shortcuts</Text>
-          <Pressable style={styles.devBtn} onPress={() => devLogin('challenger')}>
-            <Text style={styles.devBtnText}>{devAccounts.challenger.label}</Text>
-          </Pressable>
-          <Pressable style={styles.devBtn} onPress={() => devLogin('companion')}>
-            <Text style={styles.devBtnText}>{devAccounts.companion.label}</Text>
-          </Pressable>
+          <AppText variant="caption" color={colors.textMuted} style={styles.devLabel}>
+            Dev shortcuts
+          </AppText>
+          <Button
+            title={devAccounts.challenger.label}
+            onPress={() => devLogin('challenger')}
+            variant="secondary"
+            fullWidth
+            style={styles.devBtn}
+          />
+          <Button
+            title={devAccounts.companion.label}
+            onPress={() => devLogin('companion')}
+            variant="secondary"
+            fullWidth
+          />
         </View>
       )}
     </View>
@@ -46,33 +61,24 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#fff' },
-  title: { fontSize: 28, fontWeight: '700', textAlign: 'center' },
-  sub: { textAlign: 'center', color: '#6b7280', marginVertical: 16, marginBottom: 32 },
-  primary: {
-    backgroundColor: '#2563eb',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 12,
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: spacing[6],
+    backgroundColor: colors.background,
   },
-  primaryText: { color: '#fff', fontWeight: '600', fontSize: 16 },
-  secondary: {
-    borderWidth: 1,
-    borderColor: '#2563eb',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
+  mark: { fontSize: 64, textAlign: 'center', marginBottom: spacing[4] },
+  title: { textAlign: 'center', marginBottom: spacing[2] },
+  headline: { textAlign: 'center', marginBottom: spacing[3] },
+  sub: { textAlign: 'center', marginBottom: spacing[8] },
+  primary: { marginBottom: spacing[3] },
+  devBlock: {
+    marginTop: spacing[8],
+    paddingTop: spacing[6],
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing[2],
   },
-  secondaryText: { color: '#2563eb', fontWeight: '600', fontSize: 16 },
-  devBlock: { marginTop: 32, paddingTop: 24, borderTopWidth: 1, borderTopColor: '#e5e7eb' },
-  devLabel: { textAlign: 'center', color: '#9ca3af', marginBottom: 12, fontSize: 12 },
-  devBtn: {
-    backgroundColor: '#15803d',
-    padding: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  devBtnText: { color: '#fff', fontWeight: '600' },
+  devLabel: { textAlign: 'center', marginBottom: spacing[2] },
+  devBtn: { marginBottom: spacing[2] },
 });

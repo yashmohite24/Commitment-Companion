@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { ProofImageViewer } from '@/src/components/ProofImageViewer';
+import { colors } from '@/src/theme';
 import { invokeChallengeAction } from '@/src/lib/challenge-actions';
 import { formatDisplayDate, formatDisplayDateTime } from '@/src/lib/challenge-display';
 import { signedProofUrlsByProofId, shouldRenderAsImage } from '@/src/lib/proof-media';
@@ -395,7 +396,7 @@ export function ActivityFeed({
                     {submittingProofId === item.proofId ? (
                       <ActivityIndicator color="#fff" size="small" />
                     ) : (
-                      <Text style={styles.btnText}>Reject</Text>
+                      <Text style={[styles.btnText, { color: colors.gentleAlert }]}>Try again</Text>
                     )}
                   </Pressable>
                 </View>
@@ -413,10 +414,10 @@ const styles = StyleSheet.create({
   feed: {
     marginHorizontal: 12,
     marginTop: 8,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   header: {
@@ -425,53 +426,53 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: colors.surfaceTint,
   },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  feedTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
-  countLabel: { fontSize: 13, color: '#6b7280' },
-  chevron: { fontSize: 12, color: '#6b7280' },
+  feedTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+  countLabel: { fontSize: 13, color: colors.textMuted },
+  chevron: { fontSize: 12, color: colors.textMuted },
   feedBody: { padding: 12, paddingTop: 4 },
-  urlError: { fontSize: 12, color: '#b45309', marginBottom: 8 },
+  urlError: { fontSize: 12, color: colors.wager, marginBottom: 8 },
   loader: { margin: 16 },
-  empty: { color: '#6b7280', textAlign: 'center', marginTop: 8 },
+  empty: { color: colors.textMuted, textAlign: 'center', marginTop: 8 },
   item: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
   },
   itemPending: {
-    borderColor: '#f59e0b',
-    backgroundColor: '#fffbeb',
+    borderColor: colors.celebration,
+    backgroundColor: colors.celebrationMuted,
   },
-  time: { fontSize: 11, color: '#9ca3af' },
-  msg: { fontSize: 14, marginTop: 4, fontWeight: '500' },
-  meta: { fontSize: 12, color: '#6b7280', marginTop: 4 },
+  time: { fontSize: 11, color: colors.textMuted },
+  msg: { fontSize: 14, marginTop: 4, fontWeight: '500', color: colors.textPrimary },
+  meta: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
   mediaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   mediaImage: {
     width: mediaWidth,
     height: Math.round(mediaWidth * 0.72),
     borderRadius: 8,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: colors.border,
   },
-  previewError: { fontSize: 12, color: '#b45309', marginTop: 8 },
+  previewError: { fontSize: 12, color: colors.wager, marginTop: 8 },
   retryBtn: {
     marginTop: 6,
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.celebrationMuted,
     borderRadius: 6,
   },
-  retryText: { fontSize: 12, color: '#92400e', fontWeight: '600' },
-  voted: { fontSize: 13, color: '#374151', marginTop: 8, fontStyle: 'italic' },
+  retryText: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
+  voted: { fontSize: 13, color: colors.textSecondary, marginTop: 8, fontStyle: 'italic' },
   actions: { flexDirection: 'row', gap: 8, marginTop: 10 },
   btn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6, flex: 1, alignItems: 'center' },
   btnDisabled: { opacity: 0.7 },
-  accept: { backgroundColor: '#15803d' },
-  reject: { backgroundColor: '#b91c1c' },
-  btnText: { color: '#fff', fontWeight: '600' },
+  accept: { backgroundColor: colors.primary },
+  reject: { backgroundColor: colors.gentleAlertMuted, borderWidth: 1.5, borderColor: colors.gentleAlert },
+  btnText: { color: colors.textInverse, fontWeight: '600' },
 });

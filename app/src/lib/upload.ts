@@ -4,7 +4,7 @@ import { invokeChallengeAction } from './challenge-actions';
 import { MAX_MEDIA_BYTES } from './types';
 
 export type UploadResult =
-  | { ok: true }
+  | { ok: true; previewUris: string[] }
   | { ok: false; reason: 'cancelled' | 'too_large' | 'error'; message?: string };
 
 async function readAssetBlob(uri: string): Promise<Blob> {
@@ -78,7 +78,7 @@ export async function pickAndUploadCheckIn(
       storage_paths: storagePaths,
       media_size_bytes: totalSize,
     });
-    return { ok: true };
+    return { ok: true, previewUris: assets.map((a) => a.uri) };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Upload failed';
     return { ok: false, reason: 'error', message };
@@ -121,7 +121,7 @@ export async function pickAndUploadWager(challengeId: string): Promise<UploadRes
       storage_paths: storagePaths,
       media_size_bytes: totalSize,
     });
-    return { ok: true };
+    return { ok: true, previewUris: assets.map((a) => a.uri) };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Upload failed';
     return { ok: false, reason: 'error', message };

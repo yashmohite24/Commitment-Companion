@@ -10,5 +10,8 @@
     "deploy:backend": "bash scripts/deploy-backend.sh",
     "app:start": "cd app && npx expo start --go --lan",
     "app:test": "cd app && npm test"
+  },
+  "dependencies": {
+    "expo": "^46.0.21"
   }
 }

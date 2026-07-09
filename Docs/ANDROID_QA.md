@@ -4,16 +4,18 @@ Manual testing on Android Studio emulator (Windows).
 
 ## One-time setup
 
-1. **Android Studio** → SDK Manager → install **Android SDK Platform** (API 34+) and **Android SDK Platform-Tools**.
+1. **Android S**nager →**tudio** → SDK Ma install **Android SDK Platform** (API 34+) and **Android SDK Platform-Tools**.
 2. **Device Manager** → Create Virtual Device (e.g. Pixel 6, API 34) → Finish.
 3. Set environment variables (System → Environment Variables):
 
-   | Variable | Example |
-   |----------|---------|
-   | `ANDROID_HOME` | `C:\Users\<you>\AppData\Local\Android\Sdk` |
-   | Path entry | `%ANDROID_HOME%\platform-tools` |
+  | Variable       | Example                                    |
+  | -------------- | ------------------------------------------ |
+  | `ANDROID_HOME` | `C:\Users\<you>\AppData\Local\Android\Sdk` |
+  | Path entry     | `%ANDROID_HOME%\platform-tools`            |
 
 4. **App env:** `cd app` → copy `.env.example` to `.env` and set `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+
+
 
 ## Run on emulator
 
@@ -26,20 +28,37 @@ npm install
 npm run android:emulator
 ```
 
-`android:emulator` checks `adb devices`, then starts Expo and opens the app on the running emulator via Expo Go.
+`android:emulator` uses `--localhost` (recommended for Android Studio emulator) and opens the app via Expo Go.
 
-If LAN fails (common on corporate Wi‑Fi), use tunnel:
+If you see **"Cannot connect to Expo CLI"** on the emulator, Metro is unreachable over LAN. Stop Metro and restart with:
+
+```powershell
+npx expo start --go --android --localhost
+```
+
+Then confirm port forwarding:
+
+```powershell
+adb reverse tcp:8081 tcp:8081
+adb devices
+```
+
+If LAN fails (physical device on corporate Wi‑Fi), use tunnel:
 
 ```powershell
 npx expo start --go --android --tunnel
 ```
 
+
+
 ## Dev test accounts
 
-| Role | Email | Password |
-|------|-------|----------|
+
+| Role       | Email                   | Password      |
+| ---------- | ----------------------- | ------------- |
 | Challenger | `challenger@test.local` | `password123` |
-| Companion | `companion@test.local` | `password123` |
+| Companion  | `companion@test.local`  | `password123` |
+
 
 Requires `EXPO_PUBLIC_DEV_SKIP_AUTH=true` in `app/.env`.
 
@@ -50,6 +69,8 @@ Requires `EXPO_PUBLIC_DEV_SKIP_AUTH=true` in `app/.env`.
 3. **Expected:** Amber **Verify proof of work** card at top with image preview, Accept/Reject.
 4. Tap image → fullscreen → Close → Accept or Reject.
 5. If preview fails, tap **Retry** and confirm `challenge-actions` is deployed (`get_proof_download_urls`).
+
+
 
 ## Deploy backend after proof-media changes
 

@@ -2,10 +2,8 @@ import { useCallback, useState } from 'react';
 import {
   Alert,
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -18,6 +16,8 @@ import { invokeChallengeAction } from '@/src/lib/challenge-actions';
 import { supabase } from '@/src/lib/supabase';
 import type { Challenge, DailyCheckIn } from '@/src/lib/types';
 import { useAuth } from '@/src/context/AuthContext';
+import { colors, spacing } from '@/src/theme';
+import { AppText, EmptyState, Screen, ScreenHeader, SegmentedControl } from '@/src/ui';
 
 type Filter = 'live' | 'past';
 
@@ -128,12 +128,14 @@ export default function CompanionScreen() {
       .select('*')
       .in('challenge_id', ids)
       .in('check_in_date', uniqueDates);
+
     setCheckIns(indexTodayCheckIns((todayRows ?? []) as DailyCheckIn[], dateByChallenge));
 
     const { data: allCheckIns } = await supabase
       .from('daily_check_ins')
       .select('challenge_id, status')
       .in('challenge_id', ids);
+
     const counts: Record<string, number> = {};
     for (const id of ids) counts[id] = 0;
     for (const ci of allCheckIns ?? []) {
@@ -142,14 +144,18 @@ export default function CompanionScreen() {
     setDoneCounts(counts);
   }, [user, filter]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const respond = async (requestId: string, decision: 'accepted' | 'rejected') => {
     try {
       await invokeChallengeAction('respond_companion_request', { request_id: requestId, decision });
       await load();
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed');
+      Alert.alert("Something didn't go as planned", e instanceof Error ? e.message : 'Please try again');
     }
   };
 
@@ -163,28 +169,33 @@ export default function CompanionScreen() {
 
   const listHeader = (
     <>
-      <View style={styles.filters}>
-        {(['live', 'past'] as Filter[]).map((f) => (
-          <Pressable
-            key={f}
-            style={[styles.chip, filter === f && styles.chipActive]}
-            onPress={() => setFilter(f)}>
-            <Text style={filter === f ? styles.chipTextActive : styles.chipText}>
-              {f === 'live' ? 'Live' : 'Past'}
-            </Text>
-          </Pressable>
-        ))}
+      <ScreenHeader>
+        <AppText variant="displayMedium">Supporting your people</AppText>
+        <AppText variant="body" color={colors.textSecondary}>
+          Cheer them on. Keep them honest — kindly.
+        </AppText>
+      </ScreenHeader>
+
+      <View style={styles.toolbar}>
+        <SegmentedControl
+          options={[
+            { key: 'live', label: 'Active' },
+            { key: 'past', label: 'Your journey' },
+          ]}
+          value={filter}
+          onChange={(k) => setFilter(k as Filter)}
+        />
       </View>
 
       {requests.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Companion Requests</Text>
+          <AppText variant="title" style={styles.sectionTitle}>
+            Invitations
+          </AppText>
           {requests.map((r) => (
             <CompanionRequestCard
               key={r.id}
-              challengerName={
-                challengerNames[r.challenges.challenger_id] ?? 'Unknown'
-              }
+              challengerName={challengerNames[r.challenges.challenger_id] ?? 'A friend'}
               challenge={r.challenges}
               onAccept={() => respond(r.id, 'accepted')}
               onReject={() => respond(r.id, 'rejected')}
@@ -193,22 +204,31 @@ export default function CompanionScreen() {
         </View>
       )}
 
-      <Text style={styles.sectionTitle}>
-        {filter === 'live' ? 'Ongoing Challenges' : 'Past Challenges'}
-      </Text>
+      <AppText variant="title" style={styles.sectionTitle}>
+        {filter === 'live' ? 'Ongoing' : 'Past challenges'}
+      </AppText>
     </>
   );
 
   return (
-    <View style={styles.container}>
+    <Screen style={styles.screen}>
       <FlatList
         data={challenges}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={listHeader}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <Text style={styles.empty}>No {filter} companion challenges.</Text>
+          <EmptyState
+            title={filter === 'live' ? 'No companion challenges yet' : 'No past challenges'}
+            message={
+              filter === 'live'
+                ? 'When a friend invites you, it will show up here.'
+                : 'Challenges you supported will appear here when they wrap up.'
+            }
+          />
         }
         renderItem={({ item }) => {
           const totalDays = Math.max(
@@ -228,7 +248,7 @@ export default function CompanionScreen() {
           return (
             <CompanionChallengeCard
               challenge={item}
-              challengerName={challengerNames[item.challenger_id] ?? 'Unknown'}
+              challengerName={challengerNames[item.challenger_id] ?? 'A friend'}
               cardStatus={cardStatus}
               todayCheckIn={todayCheckIn}
               doneCount={doneCounts[item.id] ?? 0}
@@ -239,36 +259,14 @@ export default function CompanionScreen() {
           );
         }}
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f3f4f6' },
-  filters: {
-    flexDirection: 'row',
-    padding: 12,
-    gap: 8,
-    backgroundColor: '#fff',
-    marginBottom: 8,
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#e5e7eb',
-  },
-  chipActive: { backgroundColor: '#2563eb' },
-  chipText: { color: '#374151' },
-  chipTextActive: { color: '#fff', fontWeight: '600' },
-  section: { paddingHorizontal: 12, marginBottom: 8 },
-  sectionTitle: {
-    fontWeight: '700',
-    fontSize: 16,
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    marginTop: 4,
-  },
-  list: { paddingHorizontal: 12, paddingBottom: 24 },
-  empty: { textAlign: 'center', color: '#6b7280', marginTop: 24 },
+  screen: { paddingHorizontal: 0 },
+  toolbar: { paddingHorizontal: spacing[4], marginBottom: spacing[3] },
+  section: { paddingHorizontal: spacing[4], marginBottom: spacing[2] },
+  sectionTitle: { marginBottom: spacing[3], paddingHorizontal: spacing[4] },
+  list: { paddingHorizontal: spacing[4], paddingBottom: spacing[8] },
 });

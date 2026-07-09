@@ -22,6 +22,7 @@
 | 16 — Proof opens externally  | **Fixed** | In-app fullscreen modal via `ProofImageViewer`                      |
 | 17 — Slow approve/reject UX  | **Fixed** | Optimistic UI + cached URLs + silent background refresh             |
 | 18 — Companion add silent    | **Fixed** | `CompanionPicker` list + inline feedback (US 2)                     |
+| 19 — No upload confirmation  | **Fixed** | `ChallengerProofPreview` + inline success + media preview           |
 
 
 ---
@@ -275,6 +276,8 @@ Expected Behaviour: the companion should be able to view the proof of work while
 
 ---
 
+
+
 ## Bug 18 — Companion Add button silent / phone-only picker
 
 Where: Create challenge → Companions section
@@ -305,6 +308,8 @@ Expected behaviour: Tap opens the image in-app fullscreen; companion closes the 
 
 ---
 
+
+
 ## Bug 17 — Decision slow to register
 
 Where: Companion → Challenge overview → Accept/Reject proof
@@ -318,3 +323,19 @@ Expected behaviour: Decision should feel instant (<1s).
 **Fix:** Optimistic UI updates vote state immediately on tap. Signed URL cache (`useRef`) only fetches URLs for proofs missing from cache. Initial load parallelizes independent queries. Post-approve refresh runs silently (no full-screen spinner, no URL re-fetch). Overview header refreshes via `onProofDecision` callback when proof resolves.
 
 **Files:** `app/src/components/ActivityFeed.tsx`, `app/app/(tabs)/challenge/[id].tsx`
+
+---
+
+## Bug 19 — No upload confirmation or preview for challenger
+
+Where: Challenger → Challenge overview → Check In
+
+Current behaviour: After uploading proof photos, no visible confirmation (Alert unreliable on Android). No preview of submitted media on the overview.
+
+Expected behaviour: On successful upload, show inline "Upload Successful" confirmation and image preview of uploaded proof. Preview persists while pending companion verification.
+
+**RCA:** Success used `Alert.alert`, which is unreliable on Android/web (same class of issue as Bug 18 companion Add). Overview had no challenger-facing proof preview card — media only appeared buried in collapsed Activity feed.
+
+**Fix:** `pickAndUploadCheckIn` returns local `previewUris` for immediate display. New `ChallengerProofPreview` card on overview shows green success banner, image thumbnails (local URIs first, then signed URLs from storage), fullscreen tap via `ProofImageViewer`, and pending-verification status. Success banner auto-dismisses after 6s; preview card remains until check-in resolves.
+
+**Files:** `app/src/components/ChallengerProofPreview.tsx`, `app/app/(tabs)/challenge/[id].tsx`, `app/src/lib/upload.ts`

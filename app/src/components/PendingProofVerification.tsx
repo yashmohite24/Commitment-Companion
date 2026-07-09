@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { ProofImageViewer } from '@/src/components/ProofImageViewer';
+import { colors } from '@/src/theme';
 import { invokeChallengeAction } from '@/src/lib/challenge-actions';
 import { formatDisplayDate } from '@/src/lib/challenge-display';
 import { signedProofUrlsByProofId, shouldRenderAsImage } from '@/src/lib/proof-media';
@@ -191,7 +192,7 @@ export function PendingProofVerification({
             {submitting ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.btnText}>Reject</Text>
+              <Text style={[styles.btnText, { color: colors.gentleAlert }]}>Try again</Text>
             )}
           </Pressable>
         </View>
@@ -242,6 +243,6 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.7 },
   accept: { backgroundColor: '#15803d' },
-  reject: { backgroundColor: '#b91c1c' },
+  reject: { backgroundColor: colors.gentleAlertMuted, borderWidth: 1.5, borderColor: colors.gentleAlert },
   btnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

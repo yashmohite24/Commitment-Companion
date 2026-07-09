@@ -1,17 +1,11 @@
-import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { ChallengerProofPreview } from '@/src/components/ChallengerProofPreview';
 import { ActivityFeed } from '@/src/components/ActivityFeed';
 import { PendingProofVerification } from '@/src/components/PendingProofVerification';
 import { ChallengeDetails } from '@/src/components/ChallengeDetails';
+import { challengeDurationDays } from '@/src/lib/challenge-display';
 import { deriveCardStatus } from '@/src/lib/card-status';
 import { todayInTimezone } from '@/src/lib/challenge-time';
 import { invokeChallengeAction } from '@/src/lib/challenge-actions';
@@ -19,6 +13,14 @@ import { pickAndUploadCheckIn, pickAndUploadWager } from '@/src/lib/upload';
 import { supabase } from '@/src/lib/supabase';
 import type { Challenge, DailyCheckIn } from '@/src/lib/types';
 import { useAuth } from '@/src/context/AuthContext';
+import { colors, spacing } from '@/src/theme';
+import {
+  AppText,
+  Button,
+  CelebrationOverlay,
+  MediaUploadSheet,
+  Snackbar,
+} from '@/src/ui';
 
 export default function ChallengeOverviewScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,6 +33,12 @@ export default function ChallengeOverviewScreen() {
   const [isChallenger, setIsChallenger] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [checkInDate, setCheckInDate] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [localPreviewUris, setLocalPreviewUris] = useState<string[]>([]);
+  const [doneCount, setDoneCount] = useState(0);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationSeen, setCelebrationSeen] = useState(false);
 
   const load = useCallback(async () => {
     if (!id || !user) return;
@@ -68,12 +76,43 @@ export default function ChallengeOverviewScreen() {
       .limit(1)
       .maybeSingle();
     setPendingCheckIn((pending as DailyCheckIn) ?? null);
+
+    const { data: doneRows } = await supabase
+      .from('daily_check_ins')
+      .select('id')
+      .eq('challenge_id', id)
+      .eq('status', 'done');
+    setDoneCount(doneRows?.length ?? 0);
   }, [id, user]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  useEffect(() => {
+    if (!uploadSuccess) return;
+    const timer = setTimeout(() => setUploadSuccess(false), 6000);
+    return () => clearTimeout(timer);
+  }, [uploadSuccess]);
+
+  useEffect(() => {
+    if (localPreviewUris.length === 0) return;
+    const timer = setTimeout(() => setLocalPreviewUris([]), 30000);
+    return () => clearTimeout(timer);
+  }, [localPreviewUris]);
+
+  useEffect(() => {
+    if (!challenge || celebrationSeen) return;
+    if (challenge.status === 'successful') {
+      setShowCelebration(true);
+      setCelebrationSeen(true);
+    }
+  }, [challenge, celebrationSeen]);
+
   if (!challenge) {
-    return <Text style={{ padding: 16 }}>Loading...</Text>;
+    return (
+      <View style={styles.loading}>
+        <AppText color={colors.textMuted}>Loading your goal…</AppText>
+      </View>
+    );
   }
 
   const cardStatus = deriveCardStatus({
@@ -83,8 +122,11 @@ export default function ChallengeOverviewScreen() {
     hasPendingProof: !!pendingCheckIn || todayCheckIn?.status === 'pending_validation',
   });
 
+  const totalDays = challengeDurationDays(challenge.start_date, challenge.end_date);
+
   const handleCheckIn = async () => {
     if (!checkInDate) return;
+    setSheetOpen(false);
     setSubmitting(true);
     try {
       const result = await pickAndUploadCheckIn(challenge.id, checkInDate);
@@ -93,8 +135,9 @@ export default function ChallengeOverviewScreen() {
         Alert.alert('Check-in failed', result.message ?? 'Could not submit proof.');
         return;
       }
+      setLocalPreviewUris(result.previewUris);
+      setUploadSuccess(true);
       await load();
-      Alert.alert('Submitted', 'Proof of work sent to companions for verification.');
     } finally {
       setSubmitting(false);
     }
@@ -110,28 +153,32 @@ export default function ChallengeOverviewScreen() {
         return;
       }
       await load();
-      Alert.alert('Submitted', 'Wager settlement proof submitted.');
+      Alert.alert('Submitted', 'Settlement proof shared with your companions.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleLeave = () => {
-    Alert.alert('Leave challenge?', 'You will no longer see this challenge.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Leave',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await invokeChallengeAction('leave_challenge', { challenge_id: challenge.id });
-            router.back();
-          } catch (e) {
-            Alert.alert('Error', e instanceof Error ? e.message : 'Failed');
-          }
+    Alert.alert(
+      'Step back from this challenge?',
+      `${challenge.name} won't see you on their companion list anymore. They'll be notified.`,
+      [
+        { text: 'Stay', style: 'cancel' },
+        {
+          text: 'Step back',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await invokeChallengeAction('leave_challenge', { challenge_id: challenge.id });
+              router.back();
+            } catch (e) {
+              Alert.alert('Error', e instanceof Error ? e.message : 'Failed');
+            }
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const approveWager = async () => {
@@ -141,7 +188,7 @@ export default function ChallengeOverviewScreen() {
       .eq('challenge_id', challenge.id)
       .maybeSingle();
     if (!settlement) {
-      Alert.alert('No settlement', 'Challenger has not uploaded settlement proof yet.');
+      Alert.alert('Not yet', 'Your friend has not uploaded settlement proof yet.');
       return;
     }
     try {
@@ -154,99 +201,118 @@ export default function ChallengeOverviewScreen() {
     }
   };
 
-  const goBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace(isCompanion ? '/(tabs)/companion' : '/(tabs)/challenges');
-  };
+  const openCheckIn = () => setSheetOpen(true);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Stack.Screen
-        options={{
-          title: challenge.name,
-          headerLeft: () => (
-            <Pressable onPress={goBack} style={styles.backBtn}>
-              <Text style={styles.backText}>← Back</Text>
-            </Pressable>
-          ),
-        }}
+    <View style={styles.wrap}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <Stack.Screen
+          options={{
+            title: challenge.name,
+            headerBackTitle: 'Back',
+            headerTintColor: colors.primary,
+          }}
+        />
+        <ChallengeDetails
+          challenge={challenge}
+          doneCount={doneCount}
+          chipLabel={cardStatus.chipLabel}
+          chipTone={cardStatus.chipTone}
+        />
+
+        <View style={styles.statusBar}>
+          <AppText variant="bodyMedium">{cardStatus.label}</AppText>
+          {totalDays > 0 ? (
+            <AppText variant="caption" color={colors.textMuted}>
+              Day {Math.min(doneCount + 1, totalDays)} of {totalDays}
+            </AppText>
+          ) : null}
+        </View>
+
+        <View style={styles.actions}>
+          {isChallenger && cardStatus.ctaAction === 'check_in' && (
+            <Button
+              title={submitting ? 'Uploading…' : 'Check in'}
+              onPress={openCheckIn}
+              disabled={submitting}
+              fullWidth
+            />
+          )}
+          {isChallenger && cardStatus.ctaAction === 'settle_wager' && (
+            <Button
+              title={submitting ? 'Uploading…' : 'Settle up'}
+              onPress={handleSettleWager}
+              disabled={submitting}
+              fullWidth
+            />
+          )}
+          {isCompanion && challenge.status === 'failed' && (
+            <Button title="Confirm settlement" onPress={approveWager} fullWidth />
+          )}
+          {isCompanion && challenge.status === 'active' && (
+            <Button title="Step back" variant="ghost" onPress={handleLeave} fullWidth />
+          )}
+        </View>
+
+        {isChallenger && todayCheckIn?.status === 'pending_validation' && (
+          <ChallengerProofPreview
+            dailyCheckInId={todayCheckIn.id}
+            checkInDate={todayCheckIn.check_in_date}
+            localPreviewUris={localPreviewUris}
+            showSuccessBanner={uploadSuccess}
+          />
+        )}
+
+        {isCompanion && pendingCheckIn && (
+          <PendingProofVerification
+            challengeId={challenge.id}
+            dailyCheckInId={pendingCheckIn.id}
+            checkInDate={pendingCheckIn.check_in_date}
+            timezone={challenge.timezone}
+            onResolved={load}
+          />
+        )}
+
+        <View style={styles.feedSection}>
+          <ActivityFeed
+            challengeId={challenge.id}
+            isCompanion={isCompanion}
+            timezone={challenge.timezone}
+            onProofDecision={load}
+            hidePendingActions={isCompanion && !!pendingCheckIn}
+          />
+        </View>
+      </ScrollView>
+
+      <MediaUploadSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onUpload={handleCheckIn}
+        loading={submitting}
       />
-      <ChallengeDetails challenge={challenge} />
-      <Text style={styles.status}>{cardStatus.label}</Text>
-
-      {isChallenger && cardStatus.ctaAction === 'check_in' && (
-        <Pressable
-          style={[styles.action, submitting && styles.actionDisabled]}
-          onPress={handleCheckIn}
-          disabled={submitting}>
-          {submitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.actionText}>Check In</Text>
-          )}
-        </Pressable>
-      )}
-      {isChallenger && cardStatus.ctaAction === 'settle_wager' && (
-        <Pressable
-          style={[styles.action, submitting && styles.actionDisabled]}
-          onPress={handleSettleWager}
-          disabled={submitting}>
-          {submitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.actionText}>Settle Wager</Text>
-          )}
-        </Pressable>
-      )}
-      {isCompanion && challenge.status === 'failed' && (
-        <Pressable style={styles.action} onPress={approveWager}>
-          <Text style={styles.actionText}>Approve Wager Settlement</Text>
-        </Pressable>
-      )}
-      {isCompanion && challenge.status === 'active' && (
-        <Pressable style={[styles.action, styles.leave]} onPress={handleLeave}>
-          <Text style={styles.actionText}>Leave Challenge</Text>
-        </Pressable>
-      )}
-
-      {isCompanion && pendingCheckIn && (
-        <PendingProofVerification
-          challengeId={challenge.id}
-          dailyCheckInId={pendingCheckIn.id}
-          checkInDate={pendingCheckIn.check_in_date}
-          timezone={challenge.timezone}
-          onResolved={load}
-        />
-      )}
-
-      <View style={styles.feedSection}>
-        <ActivityFeed
-          challengeId={challenge.id}
-          isCompanion={isCompanion}
-          timezone={challenge.timezone}
-          onProofDecision={load}
-          hidePendingActions={isCompanion && !!pendingCheckIn}
-        />
-      </View>
-    </ScrollView>
+      <CelebrationOverlay
+        visible={showCelebration}
+        onDismiss={() => setShowCelebration(false)}
+      />
+      <Snackbar
+        visible={uploadSuccess}
+        message="Proof shared — your companions will take a look"
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f3f4f6' },
-  content: { paddingBottom: 24 },
-  status: { padding: 12, fontWeight: '500', backgroundColor: '#fff' },
-  action: {
-    margin: 12,
-    backgroundColor: '#2563eb',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
+  wrap: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1 },
+  content: { paddingBottom: spacing[8] },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
+  statusBar: {
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    backgroundColor: colors.surfaceTint,
+    gap: spacing[1],
   },
-  actionDisabled: { opacity: 0.7 },
-  leave: { backgroundColor: '#6b7280' },
-  actionText: { color: '#fff', fontWeight: '600' },
-  backBtn: { paddingHorizontal: 8, paddingVertical: 4 },
-  backText: { color: '#2563eb', fontSize: 17 },
-  feedSection: { minHeight: 120 },
+  actions: { paddingHorizontal: spacing[3], paddingTop: spacing[3], gap: spacing[2] },
+  feedSection: { minHeight: 120, marginTop: spacing[2] },
 });

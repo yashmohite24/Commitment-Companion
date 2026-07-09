@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { formatProfileName } from '@/src/lib/challenge-display';
 import { supabase } from '@/src/lib/supabase';
+import { colors, spacing } from '@/src/theme';
 
 interface ProfileRow {
   id: string;
@@ -40,7 +41,18 @@ async function fetchInvitableProfiles(
     }
   }
 
-  return { rows: [], error: error.message };
+  return { rows: [], error: formatRpcError(error.message) };
+}
+
+function formatRpcError(message: string): string {
+  if (
+    message.includes('search_profiles_for_companion') ||
+    message.includes('Could not find the function') ||
+    message.includes('PGRST202')
+  ) {
+    return 'Companion search is unavailable. Deploy backend migrations (search_profiles_for_companion).';
+  }
+  return message;
 }
 
 export interface SelectedCompanion {
@@ -75,6 +87,8 @@ export function CompanionPicker({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageTone, setMessageTone] = useState<'error' | 'success' | 'info'>('info');
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
 
   const search = useCallback(async (searchQuery: string) => {
     setLoading(true);
@@ -84,13 +98,13 @@ export function CompanionPicker({
 
       if (rpcError && rows.length === 0) {
         setResults([]);
-        setMessage(rpcError.message);
+        setMessage(rpcError);
         setMessageTone('error');
         return;
       }
 
       const mapped = rows.map(rowToCompanion);
-      const selectedIds = new Set(selected.map((c) => c.id));
+      const selectedIds = new Set(selectedRef.current.map((c) => c.id));
       setResults(mapped.filter((c) => !selectedIds.has(c.id)));
 
       if (mapped.length === 0) {
@@ -104,12 +118,17 @@ export function CompanionPicker({
     } finally {
       setLoading(false);
     }
-  }, [selected]);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => search(query), query.trim() ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [query, selected, search]);
+  }, [query, search]);
+
+  useEffect(() => {
+    const selectedIds = new Set(selected.map((c) => c.id));
+    setResults((prev) => prev.filter((c) => !selectedIds.has(c.id)));
+  }, [selected]);
 
   const addCompanion = (companion: SelectedCompanion) => {
     if (selected.some((c) => c.id === companion.id)) {
@@ -199,37 +218,39 @@ export function CompanionPicker({
 }
 
 const styles = StyleSheet.create({
-  label: { fontSize: 14, color: '#6b7280', marginBottom: 4 },
+  label: { fontSize: 14, color: colors.textMuted, marginBottom: 4 },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: colors.border,
     borderRadius: 8,
     padding: 12,
     marginBottom: 4,
+    backgroundColor: colors.surface,
+    color: colors.textPrimary,
   },
-  inputError: { borderColor: '#b91c1c' },
-  errorText: { color: '#b91c1c', fontSize: 12, marginBottom: 8 },
-  message: { fontSize: 13, color: '#6b7280', marginBottom: 8 },
-  messageError: { color: '#b91c1c' },
-  messageSuccess: { color: '#15803d' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12, marginTop: 4 },
+  inputError: { borderColor: colors.gentleAlert },
+  errorText: { color: colors.gentleAlert, fontSize: 12, marginBottom: 8 },
+  message: { fontSize: 13, color: colors.textMuted, marginBottom: 8 },
+  messageError: { color: colors.gentleAlert },
+  messageSuccess: { color: colors.primary },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[3], marginTop: 4 },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.companionMuted,
     borderRadius: 16,
     paddingVertical: 6,
     paddingLeft: 12,
     paddingRight: 8,
   },
-  chipText: { fontSize: 13, color: '#1e40af', fontWeight: '500' },
-  chipRemove: { fontSize: 18, color: '#6b7280', lineHeight: 20 },
-  resultsLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 },
+  chipText: { fontSize: 13, color: colors.companion, fontWeight: '500' },
+  chipRemove: { fontSize: 18, color: colors.textMuted, lineHeight: 20 },
+  resultsLabel: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: 6 },
   loader: { marginVertical: 12 },
   results: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
     borderRadius: 8,
     overflow: 'hidden',
     marginBottom: 8,
@@ -241,12 +262,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    backgroundColor: '#fff',
+    borderBottomColor: colors.surfaceTint,
+    backgroundColor: colors.surface,
   },
   resultText: { flex: 1, marginRight: 8 },
-  resultName: { fontSize: 15, fontWeight: '500', color: '#111827' },
-  resultPhone: { fontSize: 12, color: '#6b7280', marginTop: 2 },
-  addLabel: { fontSize: 14, color: '#2563eb', fontWeight: '600' },
-  empty: { fontSize: 13, color: '#9ca3af', marginBottom: 8 },
+  resultName: { fontSize: 15, fontWeight: '500', color: colors.textPrimary },
+  resultPhone: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  addLabel: { fontSize: 14, color: colors.primary, fontWeight: '600' },
+  empty: { fontSize: 13, color: colors.textMuted, marginBottom: 8 },
 });

@@ -1,5 +1,6 @@
 import { Redirect, Tabs } from 'expo-router';
 import { useAuth } from '@/src/context/AuthContext';
+import { colors } from '@/src/theme';
 
 export default function TabLayout() {
   const { session, loading } = useAuth();
@@ -10,8 +11,22 @@ export default function TabLayout() {
     <Tabs
       initialRouteName="challenges"
       screenOptions={{
-        tabBarActiveTintColor: '#2563eb',
-        headerShown: true,
+        tabBarActiveTintColor: colors.tabActive,
+        tabBarInactiveTintColor: colors.tabInactive,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          height: 56,
+          paddingBottom: 6,
+        },
+        tabBarLabelStyle: {
+          fontFamily: 'Inter_600SemiBold',
+          fontSize: 12,
+        },
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.primary,
+        headerTitleStyle: { fontFamily: 'Manrope_700Bold', fontSize: 18 },
+        sceneStyle: { backgroundColor: colors.background },
       }}>
       <Tabs.Screen
         name="companion"
@@ -19,11 +34,11 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="challenges"
-        options={{ title: 'Challenges', tabBarLabel: 'Challenges' }}
+        options={{ title: 'Your goals', tabBarLabel: 'Challenges' }}
       />
       <Tabs.Screen
         name="profile"
-        options={{ title: 'My Profile', tabBarLabel: 'Profile' }}
+        options={{ title: 'Your growth', tabBarLabel: 'Profile' }}
       />
       <Tabs.Screen
         name="challenge"

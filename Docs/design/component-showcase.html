@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HeroArc — Component Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --neutral-0: #FFFFFF;
+      --neutral-50: #FAF6EE;
+      --neutral-100: #F0EBE0;
+      --neutral-200: #E2DDD2;
+      --neutral-400: #9A9488;
+      --neutral-700: #4A453C;
+      --neutral-900: #2C2820;
+      --forest-100: #E8F0EB;
+      --forest-500: #3D6B54;
+      --forest-600: #2F5542;
+      --teal-400: #49B7A5;
+      --gold-100: #FBF3DC;
+      --gold-400: #E8B84A;
+      --sky-100: #E8F4FA;
+      --mint-100: #EAF6EF;
+      --mint-300: #A8D5BA;
+      --coral-100: #FBEAE4;
+      --coral-400: #E8927C;
+      --salmon-300: #F2B8A8;
+      --radius-md: 16px;
+      --radius-full: 9999px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      background: var(--neutral-50);
+      color: var(--neutral-900);
+      line-height: 1.5;
+      padding: 24px 16px 64px;
+    }
+    h1, h2, h3 { font-family: Manrope, sans-serif; }
+    .page-title { font-size: 32px; font-weight: 800; margin-bottom: 8px; }
+    .page-sub { color: var(--neutral-700); margin-bottom: 40px; }
+    section { margin-bottom: 48px; }
+    .section-title {
+      font-size: 14px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--forest-500); margin-bottom: 16px;
+    }
+    .swatch-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px;
+    }
+    .swatch {
+      border-radius: 12px; overflow: hidden; border: 1px solid var(--neutral-200);
+      background: var(--neutral-0);
+    }
+    .swatch-color { height: 64px; }
+    .swatch-label { padding: 8px; font-size: 12px; font-weight: 600; }
+    .swatch-hex { padding: 0 8px 8px; font-size: 11px; color: var(--neutral-400); }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .btn {
+      font-family: Inter, sans-serif; font-size: 16px; font-weight: 600;
+      min-height: 48px; padding: 0 24px; border-radius: var(--radius-full);
+      border: none; cursor: pointer; transition: transform .15s cubic-bezier(.34,1.56,.64,1);
+    }
+    .btn:active { transform: scale(.98); }
+    .btn-primary { background: var(--forest-500); color: white; }
+    .btn-primary:hover { background: var(--forest-600); }
+    .btn-secondary { background: white; color: var(--forest-500); border: 1.5px solid var(--forest-500); }
+    .btn-ghost { background: transparent; color: var(--forest-500); }
+    .btn-soft { background: var(--coral-100); color: var(--coral-400); }
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 600; padding: 6px 12px;
+      border-radius: var(--radius-full);
+    }
+    .chip-pending { background: var(--gold-100); color: var(--neutral-700); }
+    .chip-done { background: var(--mint-100); color: var(--forest-500); }
+    .chip-review { background: var(--sky-100); color: var(--neutral-700); }
+    .chip-alert { background: var(--coral-100); color: var(--coral-400); }
+    .card {
+      background: white; border-radius: var(--radius-md); padding: 20px;
+      box-shadow: 0 4px 24px rgba(44,40,32,.08); max-width: 360px;
+      border: 1px solid var(--neutral-200);
+    }
+    .card-title { font-family: Manrope; font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .card-meta { font-size: 14px; color: var(--neutral-400); margin-bottom: 12px; }
+    .trail {
+      height: 8px; background: var(--neutral-100); border-radius: 99px;
+      overflow: hidden; margin-bottom: 16px;
+    }
+    .trail-fill {
+      height: 100%; width: 40%; border-radius: 99px;
+      background: linear-gradient(90deg, var(--forest-500), var(--teal-400));
+    }
+    .segmented {
+      display: flex; background: var(--neutral-100); border-radius: var(--radius-full);
+      padding: 4px; max-width: 360px;
+    }
+    .seg-item {
+      flex: 1; text-align: center; padding: 10px 16px; font-size: 14px; font-weight: 600;
+      border-radius: var(--radius-full); cursor: pointer; color: var(--neutral-400);
+    }
+    .seg-item.active { background: white; color: var(--forest-500); box-shadow: 0 2px 8px rgba(44,40,32,.06); }
+    .type-sample { margin-bottom: 12px; }
+    .type-display { font-family: Manrope; font-size: 40px; font-weight: 800; line-height: 1.25; }
+    .type-heading { font-family: Manrope; font-size: 24px; font-weight: 700; }
+    .type-body { font-size: 16px; }
+    .cards-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+    .card-state { border-left: 4px solid var(--forest-500); }
+    .card-state.done { border-left-color: var(--mint-300); }
+    .card-state.review { border-left-color: var(--teal-400); }
+    .card-state.alert { border-left-color: var(--coral-400); }
+    .card-state.gold { border-left-color: var(--gold-400); }
+  </style>
+</head>
+<body>
+  <h1 class="page-title">HeroArc Design System</h1>
+  <p class="page-sub">Component showcase — tokens, typography, buttons, chips, challenge cards</p>
+
+  <section>
+    <h2 class="section-title">Color tokens</h2>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="swatch-color" style="background:#3D6B54"></div><div class="swatch-label">forest-500</div><div class="swatch-hex">#3D6B54</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#49B7A5"></div><div class="swatch-label">teal-400</div><div class="swatch-hex">#49B7A5</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#FAF6EE"></div><div class="swatch-label">neutral-50</div><div class="swatch-hex">#FAF6EE</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#E8B84A"></div><div class="swatch-label">gold-400</div><div class="swatch-hex">#E8B84A</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#A8D5BA"></div><div class="swatch-label">mint-300</div><div class="swatch-hex">#A8D5BA</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#E8927C"></div><div class="swatch-label">coral-400</div><div class="swatch-hex">#E8927C</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Typography</h2>
+    <div class="type-sample type-display">Show up every day.</div>
+    <div class="type-sample type-heading">Your challenges</div>
+    <div class="type-sample type-body">Big goals. Small steps. Every day.</div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Buttons</h2>
+    <div class="btn-row">
+      <button class="btn btn-primary">Check In</button>
+      <button class="btn btn-secondary">Verify</button>
+      <button class="btn btn-ghost">Decline</button>
+      <button class="btn btn-soft">Settle up</button>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Status chips</h2>
+    <div class="btn-row">
+      <span class="chip chip-pending">⏱ Ready for today</span>
+      <span class="chip chip-review">👥 Companions reviewing</span>
+      <span class="chip chip-done">✓ Showed up today</span>
+      <span class="chip chip-alert">🍃 Save used</span>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Segmented control</h2>
+    <div class="segmented">
+      <div class="seg-item active">Active</div>
+      <div class="seg-item">Your journey</div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Challenge cards (8 states)</h2>
+    <div class="cards-grid">
+      <div class="card card-state">
+        <div class="card-title">Morning Run</div>
+        <div class="card-meta">Day 12 of 30 · 40%</div>
+        <div class="trail"><div class="trail-fill"></div></div>
+        <span class="chip chip-pending">Ready for today</span>
+        <div style="margin-top:16px"><button class="btn btn-primary" style="width:100%">Check In</button></div>
+      </div>
+      <div class="card card-state review">
+        <div class="card-title">Read Nightly</div>
+        <div class="card-meta">Day 9 of 30</div>
+        <span class="chip chip-review">Companions reviewing</span>
+      </div>
+      <div class="card card-state done">
+        <div class="card-title">Meal Prep Sundays</div>
+        <div class="card-meta">Day 5 of 30</div>
+        <span class="chip chip-done">Showed up today</span>
+      </div>
+      <div class="card card-state alert">
+        <div class="card-title">No Phone After 10</div>
+        <div class="card-meta">1 save left</div>
+        <span class="chip chip-alert">Save used</span>
+      </div>
+      <div class="card card-state gold">
+        <div class="card-title">30-Day Reset</div>
+        <div class="card-meta">Completed</div>
+        <span class="chip" style="background:var(--gold-100);color:var(--neutral-700)">★ Goal complete</span>
+      </div>
+    </div>
+  </section>
+</body>
+</html>

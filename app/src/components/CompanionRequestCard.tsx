@@ -1,6 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { Challenge } from '@/src/lib/types';
 import { challengeDurationDays, formatDisplayDate } from '@/src/lib/challenge-display';
+import { colors, spacing } from '@/src/theme';
+import { AppText, Button, Card } from '@/src/ui';
 
 interface Props {
   challengerName: string;
@@ -18,54 +20,44 @@ export function CompanionRequestCard({
   const duration = challengeDurationDays(challenge.start_date, challenge.end_date);
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.label}>Challenger</Text>
-      <Text style={styles.value}>{challengerName}</Text>
-      <Text style={styles.label}>Challenge</Text>
-      <Text style={styles.value}>{challenge.name}</Text>
-      <Text style={styles.label}>Wager</Text>
-      <Text style={styles.value}>{challenge.wager}</Text>
-      <Text style={styles.meta}>
-        {formatDisplayDate(challenge.start_date)} → {formatDisplayDate(challenge.end_date)} · {duration} days
-      </Text>
-      <View style={styles.row}>
-        <Pressable style={styles.accept} onPress={onAccept}>
-          <Text style={styles.btnText}>Accept</Text>
-        </Pressable>
-        <Pressable style={styles.reject} onPress={onReject}>
-          <Text style={styles.btnText}>Reject</Text>
-        </Pressable>
+    <Card borderAccent={colors.accent}>
+      <AppText variant="caption" color={colors.textMuted}>
+        INVITATION
+      </AppText>
+      <AppText variant="title" style={styles.name}>
+        {challenge.name}
+      </AppText>
+      <AppText variant="body" color={colors.textSecondary}>
+        From {challengerName}
+      </AppText>
+      <View style={styles.wagerBox}>
+        <AppText variant="caption" color={colors.textMuted}>
+          On the line
+        </AppText>
+        <AppText variant="bodyMedium" color={colors.wager}>
+          {challenge.wager}
+        </AppText>
       </View>
-    </View>
+      <AppText variant="caption" color={colors.textMuted}>
+        {formatDisplayDate(challenge.start_date)} → {formatDisplayDate(challenge.end_date)} ·{' '}
+        {duration} days
+      </AppText>
+      <View style={styles.row}>
+        <Button title="Accept" onPress={onAccept} style={styles.btn} />
+        <Button title="Decline" onPress={onReject} variant="ghost" style={styles.btn} />
+      </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    backgroundColor: '#fff',
+  name: { marginTop: spacing[1], marginBottom: spacing[1] },
+  wagerBox: {
+    backgroundColor: colors.celebrationMuted,
+    borderRadius: 12,
+    padding: spacing[3],
+    marginVertical: spacing[3],
   },
-  label: { fontSize: 11, color: '#9ca3af', marginTop: 6, textTransform: 'uppercase' },
-  value: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  meta: { fontSize: 12, color: '#6b7280', marginTop: 8 },
-  row: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  accept: {
-    backgroundColor: '#15803d',
-    padding: 10,
-    borderRadius: 6,
-    flex: 1,
-    alignItems: 'center',
-  },
-  reject: {
-    backgroundColor: '#b91c1c',
-    padding: 10,
-    borderRadius: 6,
-    flex: 1,
-    alignItems: 'center',
-  },
-  btnText: { color: '#fff', fontWeight: '600' },
+  row: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[4] },
+  btn: { flex: 1 },
 });

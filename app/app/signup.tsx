@@ -4,8 +4,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
@@ -17,6 +15,8 @@ import {
   type SignupFieldErrors,
 } from '@/src/lib/auth-forms';
 import { supabase } from '@/src/lib/supabase';
+import { colors, spacing } from '@/src/theme';
+import { AppText, Button, Screen, TextInput } from '@/src/ui';
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -103,137 +103,106 @@ export default function SignupScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Sign Up</Text>
-      <Link href="/welcome" asChild>
-        <Text style={styles.back}>← Back</Text>
-      </Link>
-
-      <Field label="First name" value={firstName} onChangeText={setFirstName} error={errors.first_name} />
-      <Field label="Last name" value={lastName} onChangeText={setLastName} error={errors.last_name} />
-
-      <Text style={styles.label}>Country</Text>
-      <View style={styles.row}>
-        {COUNTRY_OPTIONS.map((c) => (
-          <Pressable
-            key={c.code}
-            style={[styles.chip, country === c.code && styles.chipActive]}
-            onPress={() => onCountryChange(c.code)}>
-            <Text style={country === c.code ? styles.chipTextActive : styles.chipText}>
-              {c.code}
-            </Text>
+    <Screen>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <AppText variant="displayMedium" style={styles.title}>
+          Join HeroArc
+        </AppText>
+        <Link href="/welcome" asChild>
+          <Pressable>
+            <AppText color={colors.primary} style={styles.back}>
+              ← Back
+            </AppText>
           </Pressable>
-        ))}
-      </View>
-      {errors.country ? <Text style={styles.error}>{errors.country}</Text> : null}
+        </Link>
 
-      <Field
-        label="Country code"
-        value={phoneCountryCode}
-        onChangeText={setPhoneCountryCode}
-        error={errors.phone_country_code}
-      />
-      <Field
-        label="Phone (10 digits)"
-        value={phone}
-        onChangeText={setPhone}
-        keyboardType="phone-pad"
-        error={errors.phone}
-      />
-      <Field
-        label="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        error={errors.email}
-      />
-      <Field
-        label="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        error={errors.password}
-      />
-      <Field
-        label="Confirm password"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-        error={errors.confirm_password}
-      />
+        <TextInput label="First name" value={firstName} onChangeText={setFirstName} error={errors.first_name} />
+        <TextInput label="Last name" value={lastName} onChangeText={setLastName} error={errors.last_name} />
 
-      <Pressable style={styles.primary} onPress={submit} disabled={loading}>
-        <Text style={styles.primaryText}>{loading ? 'Creating…' : 'Sign up'}</Text>
-      </Pressable>
-    </ScrollView>
-  );
-}
+        <AppText variant="label" color={colors.textMuted} style={styles.countryLabel}>
+          Country
+        </AppText>
+        <View style={styles.row}>
+          {COUNTRY_OPTIONS.map((c) => (
+            <Pressable
+              key={c.code}
+              style={[styles.chip, country === c.code && styles.chipActive]}
+              onPress={() => onCountryChange(c.code)}>
+              <AppText
+                variant="label"
+                color={country === c.code ? colors.textInverse : colors.textSecondary}>
+                {c.code}
+              </AppText>
+            </Pressable>
+          ))}
+        </View>
+        {errors.country ? (
+          <AppText variant="caption" color={colors.gentleAlert} style={styles.countryError}>
+            {errors.country}
+          </AppText>
+        ) : null}
 
-function Field({
-  label,
-  value,
-  onChangeText,
-  error,
-  keyboardType,
-  secureTextEntry,
-  autoCapitalize,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (t: string) => void;
-  error?: string;
-  keyboardType?: 'default' | 'phone-pad' | 'email-address';
-  secureTextEntry?: boolean;
-  autoCapitalize?: 'none' | 'sentences';
-}) {
-  return (
-    <>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        style={[styles.input, error ? styles.inputError : null]}
-        value={value}
-        onChangeText={onChangeText}
-        keyboardType={keyboardType}
-        secureTextEntry={secureTextEntry}
-        autoCapitalize={autoCapitalize}
-      />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-    </>
+        <TextInput
+          label="Country code"
+          value={phoneCountryCode}
+          onChangeText={setPhoneCountryCode}
+          error={errors.phone_country_code}
+        />
+        <TextInput
+          label="Phone (10 digits)"
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+          error={errors.phone}
+        />
+        <TextInput
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          error={errors.email}
+        />
+        <TextInput
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          error={errors.password}
+        />
+        <TextInput
+          label="Confirm password"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+          error={errors.confirm_password}
+        />
+
+        <Button
+          title={loading ? 'Creating…' : 'Sign up'}
+          onPress={submit}
+          disabled={loading}
+          fullWidth
+          style={styles.submit}
+        />
+      </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 16, paddingBottom: 40 },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 8 },
-  back: { color: '#2563eb', marginBottom: 16 },
-  label: { fontSize: 14, color: '#6b7280', marginBottom: 4 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 4,
-  },
-  inputError: { borderColor: '#b91c1c' },
-  error: { color: '#b91c1c', fontSize: 12, marginBottom: 8 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  content: { paddingBottom: spacing[8] },
+  title: { marginBottom: spacing[2] },
+  back: { marginBottom: spacing[4] },
+  countryLabel: { marginBottom: spacing[1] },
+  countryError: { marginBottom: spacing[2] },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[3] },
   chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
     borderRadius: 16,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: colors.surfaceTint,
   },
-  chipActive: { backgroundColor: '#2563eb' },
-  chipText: { color: '#374151' },
-  chipTextActive: { color: '#fff', fontWeight: '600' },
-  primary: {
-    backgroundColor: '#2563eb',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  primaryText: { color: '#fff', fontWeight: '600' },
+  chipActive: { backgroundColor: colors.primary },
+  submit: { marginTop: spacing[4] },
 });

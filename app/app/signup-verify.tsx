@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/src/context/AuthContext';
 import { supabase } from '@/src/lib/supabase';
+import { colors, spacing } from '@/src/theme';
+import { AppText, Button, Screen, TextInput } from '@/src/ui';
 
 const RESEND_SECONDS = 120;
 
@@ -59,54 +61,44 @@ export default function SignupVerifyScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Verify phone</Text>
-      <Text style={styles.sub}>
-        Enter the OTP sent to {phone}
-        {email ? `\nAccount: ${email}` : ''}
-      </Text>
-      <TextInput
-        style={styles.input}
-        placeholder="OTP code"
-        keyboardType="number-pad"
-        value={otp}
-        onChangeText={setOtp}
-      />
-      <Pressable style={styles.primary} onPress={verify} disabled={loading}>
-        <Text style={styles.primaryText}>{loading ? 'Verifying…' : 'Verify'}</Text>
-      </Pressable>
-      <Pressable onPress={resend} disabled={resendIn > 0}>
-        <Text style={[styles.link, resendIn > 0 && styles.linkDisabled]}>
-          {resendIn > 0 ? `Resend OTP in ${resendIn}s` : 'Resend OTP'}
-        </Text>
-      </Pressable>
-      <Pressable onPress={() => router.replace('/signup')}>
-        <Text style={styles.link}>← Back to sign up</Text>
-      </Pressable>
-    </View>
+    <Screen style={styles.screen}>
+      <View style={styles.inner}>
+        <AppText variant="displayMedium" style={styles.title}>
+          Verify phone
+        </AppText>
+        <AppText variant="body" color={colors.textSecondary} style={styles.sub}>
+          Enter the OTP sent to {phone}
+          {email ? `\nAccount: ${email}` : ''}
+        </AppText>
+        <TextInput
+          placeholder="OTP code"
+          keyboardType="number-pad"
+          value={otp}
+          onChangeText={setOtp}
+        />
+        <Button
+          title={loading ? 'Verifying…' : 'Verify'}
+          onPress={verify}
+          disabled={loading}
+          fullWidth
+        />
+        <Pressable onPress={resend} disabled={resendIn > 0} style={styles.linkWrap}>
+          <AppText color={resendIn > 0 ? colors.textMuted : colors.primary}>
+            {resendIn > 0 ? `Resend OTP in ${resendIn}s` : 'Resend OTP'}
+          </AppText>
+        </Pressable>
+        <Pressable onPress={() => router.replace('/signup')}>
+          <AppText color={colors.primary}>← Back to sign up</AppText>
+        </Pressable>
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff' },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 8 },
-  sub: { color: '#6b7280', marginBottom: 16, lineHeight: 20 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    fontSize: 16,
-  },
-  primary: {
-    backgroundColor: '#2563eb',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  primaryText: { color: '#fff', fontWeight: '600' },
-  link: { color: '#2563eb', textAlign: 'center', marginTop: 12 },
-  linkDisabled: { color: '#9ca3af' },
+  screen: { justifyContent: 'center' },
+  inner: { paddingVertical: spacing[6] },
+  title: { marginBottom: spacing[2] },
+  sub: { marginBottom: spacing[4], lineHeight: 22 },
+  linkWrap: { marginVertical: spacing[4] },
 });
