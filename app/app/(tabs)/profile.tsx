@@ -138,7 +138,7 @@ export default function ProfileScreen() {
         </AppText>
       </Pressable>
 
-      <Button title="Log out" onPress={signOut} variant="soft" fullWidth style={styles.logout} />
+      <Button title="Log out" onPress={signOut} variant="danger" fullWidth style={styles.logout} />
     </ScrollView>
   );
 }

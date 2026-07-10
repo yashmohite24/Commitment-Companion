@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { colors, spacing } from '@/src/theme';
 import { AppText } from './AppText';
 import { Button } from './Button';
@@ -13,7 +13,9 @@ interface Props {
 export function EmptyState({ title, message, actionLabel, onAction }: Props) {
   return (
     <View style={styles.wrap}>
-      <AppText style={styles.emoji}>🌱</AppText>
+      <View style={styles.emojiWrap}>
+        <Text style={styles.emoji}>🌱</Text>
+      </View>
       <AppText variant="title" style={styles.title}>
         {title}
       </AppText>
@@ -33,7 +35,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[10],
     paddingHorizontal: spacing[6],
   },
-  emoji: { fontSize: 48, marginBottom: spacing[4] },
+  emojiWrap: {
+    minHeight: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing[4],
+  },
+  emoji: {
+    fontSize: 48,
+    lineHeight: 56,
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
   title: { textAlign: 'center', marginBottom: spacing[2] },
   message: { textAlign: 'center', marginBottom: spacing[6] },
   btn: { minWidth: 200 },

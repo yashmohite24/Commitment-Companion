@@ -1,4 +1,4 @@
-import { Modal, StyleSheet, View } from 'react-native';
+import { Modal, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing } from '@/src/theme';
 import { AppText } from './AppText';
 import { Button } from './Button';
@@ -20,7 +20,9 @@ export function CelebrationOverlay({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <AppText style={styles.emoji}>✨</AppText>
+          <View style={styles.emojiWrap}>
+            <Text style={styles.emoji}>✨</Text>
+          </View>
           <AppText variant="displayMedium" style={styles.title}>
             {title}
           </AppText>
@@ -52,7 +54,18 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.celebrationMuted,
   },
-  emoji: { fontSize: 48, marginBottom: spacing[3] },
+  emojiWrap: {
+    minHeight: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing[3],
+  },
+  emoji: {
+    fontSize: 48,
+    lineHeight: 56,
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
   title: { textAlign: 'center', marginBottom: spacing[2] },
   sub: { textAlign: 'center', lineHeight: 22, marginBottom: spacing[5] },
   btn: { backgroundColor: colors.celebration },

@@ -1,84 +1,64 @@
-import { useCallback, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { ChallengeCard } from '@/src/components/ChallengeCard';
+import { ChallengerEmptyState } from '@/src/components/ChallengerEmptyState';
+import { useFocusData } from '@/src/hooks/useFocusData';
 import { deriveCardStatus, isActiveChallenge } from '@/src/lib/card-status';
-import { indexTodayCheckIns, todayDatesByChallenge } from '@/src/lib/challenge-time';
-import { supabase } from '@/src/lib/supabase';
-import type { Challenge, DailyCheckIn } from '@/src/lib/types';
+import { fetchChallengesTabData } from '@/src/lib/challenges-tab-data';
+import type { Challenge } from '@/src/lib/types';
 import { useAuth } from '@/src/context/AuthContext';
 import { colors, spacing } from '@/src/theme';
-import { AppText, Button, EmptyState, Screen, ScreenHeader, SegmentedControl } from '@/src/ui';
+import { AppText, Button, Screen, ScreenHeader, SegmentedControl } from '@/src/ui';
 
 type Filter = 'active' | 'past';
+
+function challengeTotalDays(item: Challenge): number {
+  return Math.max(
+    1,
+    Math.ceil(
+      (new Date(item.end_date).getTime() - new Date(item.start_date).getTime()) / 86400000,
+    ) + 1,
+  );
+}
 
 export default function ChallengesScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('active');
-  const [challenges, setChallenges] = useState<Challenge[]>([]);
-  const [checkIns, setCheckIns] = useState<Record<string, DailyCheckIn>>({});
-  const [doneCounts, setDoneCounts] = useState<Record<string, number>>({});
   const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from('challenges')
-      .select('*')
-      .eq('challenger_id', user.id)
-      .order('created_at', { ascending: false });
-    const all = (data ?? []) as Challenge[];
-    const filtered = all.filter((c) =>
+  const fetcher = useCallback(async () => {
+    if (!user) return { challenges: [], checkIns: {}, doneCounts: {} };
+    return fetchChallengesTabData(user.id);
+  }, [user]);
+
+  const { data, loading, refresh } = useFocusData(
+    `challenges:${user?.id ?? ''}`,
+    fetcher,
+    [user?.id],
+  );
+
+  const filteredChallenges = useMemo(() => {
+    const all = data?.challenges ?? [];
+    return all.filter((c) =>
       filter === 'active' ? isActiveChallenge(c.status) : !isActiveChallenge(c.status),
     );
-    setChallenges(filtered);
+  }, [data?.challenges, filter]);
 
-    const ids = filtered.map((c) => c.id);
-    if (ids.length === 0) {
-      setCheckIns({});
-      setDoneCounts({});
-      return;
-    }
-
-    const dateByChallenge = todayDatesByChallenge(filtered);
-    const uniqueDates = [...new Set(dateByChallenge.values())];
-
-    const { data: todayRows } = await supabase
-      .from('daily_check_ins')
-      .select('*')
-      .in('challenge_id', ids)
-      .in('check_in_date', uniqueDates);
-
-    setCheckIns(indexTodayCheckIns((todayRows ?? []) as DailyCheckIn[], dateByChallenge));
-
-    const { data: allCheckIns } = await supabase
-      .from('daily_check_ins')
-      .select('challenge_id, status')
-      .in('challenge_id', ids);
-
-    const counts: Record<string, number> = {};
-    for (const id of ids) counts[id] = 0;
-    for (const ci of allCheckIns ?? []) {
-      if (ci.status === 'done') counts[ci.challenge_id] = (counts[ci.challenge_id] ?? 0) + 1;
-    }
-    setDoneCounts(counts);
-  }, [user, filter]);
-
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load]),
-  );
+  const checkIns = data?.checkIns ?? {};
+  const doneCounts = data?.doneCounts ?? {};
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await load();
+    await refresh();
     setRefreshing(false);
   };
 
+  const showEmpty = !loading && filteredChallenges.length === 0;
+
   return (
-    <Screen style={styles.screen}>
+    <Screen>
       <ScreenHeader>
         <AppText variant="displayMedium" style={styles.headline}>
           Your goals
@@ -89,90 +69,92 @@ export default function ChallengesScreen() {
       </ScreenHeader>
 
       <View style={styles.toolbar}>
-        <SegmentedControl
-          options={[
-            { key: 'active', label: 'Active' },
-            { key: 'past', label: 'Your journey' },
-          ]}
-          value={filter}
-          onChange={(k) => setFilter(k as Filter)}
-        />
+        <View style={styles.segment}>
+          <SegmentedControl
+            options={[
+              { key: 'active', label: 'Active' },
+              { key: 'past', label: 'Past' },
+            ]}
+            value={filter}
+            onChange={(k) => setFilter(k as Filter)}
+          />
+        </View>
         <Button
-          title="+ New"
-          variant="ghost"
+          title="New"
+          variant="secondary"
           onPress={() => router.push('/challenge/create')}
           style={styles.newBtn}
         />
       </View>
 
-      <FlatList
-        data={challenges}
-        keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          filter === 'active' ? (
-            <EmptyState
-              title="Your next big goal starts here"
-              message="Pick something that matters. Show up daily — invite people who believe in you."
-              actionLabel="Start a goal"
-              onAction={() => router.push('/challenge/create')}
-            />
-          ) : (
-            <EmptyState
-              title="No past goals yet"
-              message="When you complete a goal, it will live here."
-            />
-          )
-        }
-        renderItem={({ item }) => {
-          const totalDays = Math.max(
-            1,
-            Math.ceil(
-              (new Date(item.end_date).getTime() - new Date(item.start_date).getTime()) /
-                86400000,
-            ) + 1,
-          );
-          const cardStatus = deriveCardStatus({
-            challenge: item,
-            todayCheckIn: checkIns[item.id] ?? null,
-            role: 'challenger',
-          });
-          return (
-            <ChallengeCard
-              challenge={item}
-              cardStatus={cardStatus}
-              doneCount={doneCounts[item.id] ?? 0}
-              totalDays={totalDays}
-              currentDay={(doneCounts[item.id] ?? 0) + 1}
-              onPress={() => router.push(`/challenge/${item.id}`)}
-              onCta={() => {
-                if (cardStatus.ctaAction === 'edit_draft') {
-                  router.push(`/challenge/create?id=${item.id}`);
-                } else {
-                  router.push(`/challenge/${item.id}`);
+      {loading && filteredChallenges.length === 0 ? (
+        <View style={styles.loader}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredChallenges}
+          keyExtractor={(item) => item.id}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
+          contentContainerStyle={[
+            styles.list,
+            showEmpty && styles.listEmpty,
+          ]}
+          ListEmptyComponent={
+            showEmpty ? (
+              <ChallengerEmptyState
+                variant={filter === 'active' ? 'active' : 'past'}
+                onCreateGoal={
+                  filter === 'active' ? () => router.push('/challenge/create') : undefined
                 }
-              }}
-            />
-          );
-        }}
-      />
+              />
+            ) : null
+          }
+          renderItem={({ item }) => {
+            const totalDays = challengeTotalDays(item);
+            const cardStatus = deriveCardStatus({
+              challenge: item,
+              todayCheckIn: checkIns[item.id] ?? null,
+              role: 'challenger',
+            });
+            return (
+              <ChallengeCard
+                challenge={item}
+                cardStatus={cardStatus}
+                doneCount={doneCounts[item.id] ?? 0}
+                totalDays={totalDays}
+                currentDay={(doneCounts[item.id] ?? 0) + 1}
+                onPress={() => router.push(`/challenge/${item.id}`)}
+                onCta={() => {
+                  if (cardStatus.ctaAction === 'edit_draft') {
+                    router.push(`/challenge/create?id=${item.id}`);
+                  } else {
+                    router.push(`/challenge/${item.id}`);
+                  }
+                }}
+              />
+            );
+          }}
+        />
+      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { paddingHorizontal: 0 },
   headline: { marginBottom: spacing[1] },
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing[4],
     gap: spacing[2],
     marginBottom: spacing[3],
+    minHeight: 48,
   },
-  newBtn: { minHeight: 40, paddingHorizontal: spacing[3] },
-  list: { paddingHorizontal: spacing[4], paddingBottom: spacing[8] },
+  segment: { flex: 1 },
+  newBtn: { minHeight: 40, paddingHorizontal: spacing[4], flexShrink: 0 },
+  list: { paddingBottom: spacing[8] },
+  listEmpty: { flexGrow: 1, justifyContent: 'center' },
+  loader: { flex: 1, alignItems: 'center', paddingTop: spacing[10] },
 });

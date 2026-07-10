@@ -7,7 +7,7 @@ Design artifacts for the HeroArc commitment app. **Paper MCP excluded** — spec
 | Phase | File | Status |
 |-------|------|--------|
 | 1 Brand | [01-brand-strategy.md](./01-brand-strategy.md) | Done |
-| 2 Visual | [02-visual-identity.md](./02-visual-identity.md) | Done |
+| 2 Visual | [02-visual-identity.md](./02-visual-identity.md) · [tab-icons.md](./tab-icons.md) | Done |
 | 3 Tokens | [03-tokens.md](./03-tokens.md) · [tokens.json](./tokens.json) | Done |
 | 4 Components | [04-components.md](./04-components.md) · [component-showcase.html](./component-showcase.html) | Done |
 | 5 IA | [05-information-architecture.md](./05-information-architecture.md) | Done |

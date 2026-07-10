@@ -1,5 +1,5 @@
 import { Link, Redirect } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/src/context/AuthContext';
 import { devAccounts, devSignIn, devSkipAuth } from '@/src/lib/dev-auth';
 import { colors, spacing } from '@/src/theme';
@@ -17,7 +17,9 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      <AppText style={styles.mark}>🌱</AppText>
+      <View style={styles.markWrap}>
+        <Text style={styles.mark}>🌱</Text>
+      </View>
       <AppText variant="displayMedium" style={styles.title}>
         HeroArc
       </AppText>
@@ -67,7 +69,18 @@ const styles = StyleSheet.create({
     padding: spacing[6],
     backgroundColor: colors.background,
   },
-  mark: { fontSize: 64, textAlign: 'center', marginBottom: spacing[4] },
+  markWrap: {
+    minHeight: 72,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing[4],
+  },
+  mark: {
+    fontSize: 64,
+    lineHeight: 72,
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
   title: { textAlign: 'center', marginBottom: spacing[2] },
   headline: { textAlign: 'center', marginBottom: spacing[3] },
   sub: { textAlign: 'center', marginBottom: spacing[8] },

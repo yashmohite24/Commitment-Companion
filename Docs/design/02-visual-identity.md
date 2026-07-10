@@ -23,7 +23,7 @@
 | Splash screen | Growth mark centered on cream background |
 | Nav header (optional) | `HeroArc-logo.svg` horizontal lockup |
 | Favicon / web | `HeroArc-growth-mark-mono.svg` on dark or cream |
-| Tab bar accent | Simplified arc stroke, 24×24 |
+| Tab bar accent | Simplified arc stroke, 24×24 — see [tab-icons.md](./tab-icons.md) |
 
 ### Clear space
 

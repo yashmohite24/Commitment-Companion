@@ -14,6 +14,7 @@ import { supabase } from '@/src/lib/supabase';
 import type { Challenge, DailyCheckIn } from '@/src/lib/types';
 import { useAuth } from '@/src/context/AuthContext';
 import { colors, spacing } from '@/src/theme';
+import { invalidateTabListCaches } from '@/src/hooks/useFocusData';
 import {
   AppText,
   Button,
@@ -85,6 +86,11 @@ export default function ChallengeOverviewScreen() {
     setDoneCount(doneRows?.length ?? 0);
   }, [id, user]);
 
+  const reloadLists = useCallback(async () => {
+    invalidateTabListCaches(user?.id);
+    await load();
+  }, [load, user?.id]);
+
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   useEffect(() => {
@@ -137,7 +143,7 @@ export default function ChallengeOverviewScreen() {
       }
       setLocalPreviewUris(result.previewUris);
       setUploadSuccess(true);
-      await load();
+      await reloadLists();
     } finally {
       setSubmitting(false);
     }
@@ -152,7 +158,7 @@ export default function ChallengeOverviewScreen() {
         Alert.alert('Upload failed', result.message ?? 'Could not submit settlement proof.');
         return;
       }
-      await load();
+      await reloadLists();
       Alert.alert('Submitted', 'Settlement proof shared with your companions.');
     } finally {
       setSubmitting(false);
@@ -171,6 +177,7 @@ export default function ChallengeOverviewScreen() {
           onPress: async () => {
             try {
               await invokeChallengeAction('leave_challenge', { challenge_id: challenge.id });
+              invalidateTabListCaches(user?.id);
               router.back();
             } catch (e) {
               Alert.alert('Error', e instanceof Error ? e.message : 'Failed');
@@ -195,7 +202,7 @@ export default function ChallengeOverviewScreen() {
       await invokeChallengeAction('approve_wager_settlement', {
         wager_settlement_id: settlement.id,
       });
-      await load();
+      await reloadLists();
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'Failed');
     }
@@ -269,7 +276,7 @@ export default function ChallengeOverviewScreen() {
             dailyCheckInId={pendingCheckIn.id}
             checkInDate={pendingCheckIn.check_in_date}
             timezone={challenge.timezone}
-            onResolved={load}
+            onResolved={reloadLists}
           />
         )}
 
@@ -278,7 +285,7 @@ export default function ChallengeOverviewScreen() {
             challengeId={challenge.id}
             isCompanion={isCompanion}
             timezone={challenge.timezone}
-            onProofDecision={load}
+            onProofDecision={reloadLists}
             hidePendingActions={isCompanion && !!pendingCheckIn}
           />
         </View>

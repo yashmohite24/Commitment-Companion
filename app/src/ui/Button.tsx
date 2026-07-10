@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, type ViewStyle } from 'react-native';
 import { colors, layout, radius, spacing } from '@/src/theme';
 import { AppText } from './AppText';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'soft';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'soft' | 'danger';
 
 interface Props {
   title: string;
@@ -35,7 +35,11 @@ export function Button({
       ]}>
       <AppText
         variant="bodyMedium"
-        color={variant === 'primary' ? colors.textInverse : colors.primary}
+        color={
+          variant === 'primary' || variant === 'danger'
+            ? colors.textInverse
+            : colors.primary
+        }
         style={variant === 'soft' ? { color: colors.gentleAlert } : undefined}>
         {title}
       </AppText>
@@ -65,4 +69,5 @@ const variantStyles = StyleSheet.create({
   },
   ghost: { backgroundColor: 'transparent' },
   soft: { backgroundColor: colors.gentleAlertMuted },
+  danger: { backgroundColor: colors.logout },
 });

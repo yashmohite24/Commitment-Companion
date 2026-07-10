@@ -19,6 +19,8 @@ export const palette = {
   mint300: '#A8D5BA',
   coral100: '#FBEAE4',
   coral400: '#E8927C',
+  coral500: '#FF5C4F',
+  coral200: '#FFD6CF',
   salmon300: '#F2B8A8',
   peach400: '#F7B267',
 } as const;
@@ -41,6 +43,8 @@ export const colors = {
   celebrationMuted: palette.gold100,
   gentleAlert: palette.coral400,
   gentleAlertMuted: palette.coral100,
+  logout: palette.coral500,
+  logoutMuted: palette.coral200,
   warning: palette.salmon300,
   wager: palette.peach400,
   textPrimary: palette.neutral900,

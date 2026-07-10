@@ -61,7 +61,8 @@ export function SegmentedControl({ options, value, onChange }: SegmentedProps) {
             onPress={() => onChange(opt.key)}>
             <AppText
               variant="label"
-              color={active ? colors.primary : colors.textMuted}>
+              color={active ? colors.primary : colors.textMuted}
+              style={segStyles.segLabel}>
               {opt.label}
             </AppText>
           </Pressable>
@@ -76,14 +77,19 @@ const segStyles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: colors.surfaceTint,
     borderRadius: radius.full,
-    padding: 4,
+    padding: spacing[1],
     flex: 1,
+    minHeight: 48,
+    alignItems: 'stretch',
   },
   segItem: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: spacing[2] + 2,
+    justifyContent: 'center',
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[2],
     borderRadius: radius.full,
+    minHeight: 40,
   },
   segActive: {
     backgroundColor: colors.surface,
@@ -92,5 +98,10 @@ const segStyles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
+  },
+  segLabel: {
+    lineHeight: 20,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
 });

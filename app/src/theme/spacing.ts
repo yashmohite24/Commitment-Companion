@@ -21,8 +21,8 @@ export const radius = {
 } as const;
 
 export const layout = {
-  screenPaddingHorizontal: 16,
-  gutter: 8,
+  screenPaddingHorizontal: spacing[5],
+  gutter: spacing[2],
   minTouchTarget: 48,
   bottomNavHeight: 56,
 } as const;
